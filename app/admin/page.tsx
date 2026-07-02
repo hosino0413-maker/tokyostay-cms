@@ -1,6 +1,6 @@
-import { AdminClient } from "@/components/AdminClient";
-import { getProperties } from "@/lib/properties";
+import { BuildingAdminClient } from "@/components/BuildingAdminClient";
+import { getBuildings } from "@/lib/buildings";
 
 export default function AdminPage() {
-  return <AdminClient initialProperties={getProperties()} />;
+  return <BuildingAdminClient initialBuildings={getBuildings()} />;
 }

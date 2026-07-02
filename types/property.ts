@@ -50,6 +50,38 @@ export type Property = {
   updatedAt: string;
 };
 
+export type RoomType = {
+  id: string;
+  name: LocalizedText;
+  roomType: string;
+  capacity: string;
+  size: string;
+  rooms: string[];
+  description: LocalizedText;
+  tags: string[];
+  amenities: string[];
+  images: MediaImage[];
+  videos: MediaVideo[];
+  map: MapConfig;
+  unavailableDates: DateRange[];
+  status: PropertyStatus;
+};
+
+export type Building = {
+  id: string;
+  name: LocalizedText;
+  area: string;
+  station: string;
+  walkMinutes: number;
+  description: LocalizedText;
+  coverImage: string;
+  gallery: MediaImage[];
+  featured: boolean;
+  order: number;
+  tags: string[];
+  roomTypes: RoomType[];
+};
+
 export type AiDraft = {
   description: LocalizedText;
   sellingPoints: LocalizedText[];

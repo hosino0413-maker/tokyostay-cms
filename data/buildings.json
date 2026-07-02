@@ -1,0 +1,214 @@
+{
+  "buildings": [
+    {
+      "id": "jingu-6",
+      "name": {
+        "zh": "神宫6精品公寓",
+        "en": "Jingu 6 Residence",
+        "ja": "神宮6レジデンス"
+      },
+      "area": "Shinjuku / Jingumae",
+      "station": "Jingumae Station",
+      "walkMinutes": 5,
+      "description": {
+        "zh": "位于东京核心生活圈的精品公寓，适合中长期居住、商务差旅与家庭短住。空间明亮，生活设施完整。",
+        "en": "A calm Tokyo residence for monthly stays, business trips, and compact family living. Bright interiors, practical amenities, and convenient station access.",
+        "ja": "東京中心エリアにある落ち着いたレジデンス。中長期滞在、出張、家族での短期滞在に適しています。"
+      },
+      "coverImage": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
+      "gallery": [
+        {
+          "id": "jingu-building-1",
+          "url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
+          "type": "cover",
+          "alt": "Jingu 6 living room"
+        },
+        {
+          "id": "jingu-building-2",
+          "url": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop",
+          "type": "gallery",
+          "alt": "Jingu 6 bedroom"
+        },
+        {
+          "id": "jingu-building-3",
+          "url": "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1600&auto=format&fit=crop",
+          "type": "gallery",
+          "alt": "Jingu 6 kitchen"
+        }
+      ],
+      "featured": true,
+      "order": 1,
+      "tags": ["Near Station", "Long Stay", "Family"],
+      "roomTypes": [
+        {
+          "id": "1ldk",
+          "name": {
+            "zh": "1LDK 户型",
+            "en": "1LDK Room Type",
+            "ja": "1LDKタイプ"
+          },
+          "roomType": "1LDK",
+          "capacity": "1-3",
+          "size": "35 sqm",
+          "rooms": ["201", "202"],
+          "description": {
+            "zh": "安静明亮的一居室户型，配备完整厨房、洗衣机和高速 Wi-Fi，适合长期居住。",
+            "en": "A bright one-bedroom layout with a full kitchen, washer, and fast Wi-Fi. Designed for comfortable longer stays.",
+            "ja": "明るい1LDKタイプ。キッチン、洗濯機、高速Wi-Fiを備え、中長期滞在に適しています。"
+          },
+          "tags": ["Wi-Fi", "Kitchen", "Washer", "Workspace"],
+          "amenities": ["Wi-Fi", "Kitchen", "Washer", "Air Conditioner", "Workspace", "Bathtub"],
+          "images": [
+            {
+              "id": "jingu-1ldk-1",
+              "url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
+              "type": "cover",
+              "alt": "Bright living room"
+            },
+            {
+              "id": "jingu-1ldk-2",
+              "url": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop",
+              "type": "gallery",
+              "alt": "Bedroom with soft linen"
+            },
+            {
+              "id": "jingu-1ldk-3",
+              "url": "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1600&auto=format&fit=crop",
+              "type": "gallery",
+              "alt": "Kitchen and dining"
+            }
+          ],
+          "videos": [
+            {
+              "id": "tour",
+              "url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+              "title": "Room Tour"
+            }
+          ],
+          "map": {
+            "type": "google",
+            "embedUrl": "https://www.google.com/maps?q=Shinjuku%20Tokyo&output=embed",
+            "address": "Shinjuku, Tokyo"
+          },
+          "unavailableDates": [
+            { "start": "2026-07-05", "end": "2026-07-06" },
+            { "start": "2026-07-15", "end": "2026-07-18" }
+          ],
+          "status": "published"
+        },
+        {
+          "id": "studio",
+          "name": {
+            "zh": "Studio 户型",
+            "en": "Studio Room Type",
+            "ja": "Studioタイプ"
+          },
+          "roomType": "Studio",
+          "capacity": "1-2",
+          "size": "26 sqm",
+          "rooms": ["301"],
+          "description": {
+            "zh": "紧凑高效的 Studio 户型，适合短住、商务差旅和单人长期居住。",
+            "en": "A compact and efficient studio for short stays, business travel, and solo monthly living.",
+            "ja": "短期滞在、出張、単身の中長期滞在に適したコンパクトなStudioタイプです。"
+          },
+          "tags": ["Wi-Fi", "Kitchenette", "Near Station"],
+          "amenities": ["Wi-Fi", "Kitchenette", "Washer", "Air Conditioner"],
+          "images": [
+            {
+              "id": "jingu-studio-1",
+              "url": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1600&auto=format&fit=crop",
+              "type": "cover",
+              "alt": "Studio room"
+            }
+          ],
+          "videos": [],
+          "map": {
+            "type": "google",
+            "embedUrl": "https://www.google.com/maps?q=Shinjuku%20Tokyo&output=embed",
+            "address": "Shinjuku, Tokyo"
+          },
+          "unavailableDates": [],
+          "status": "published"
+        }
+      ]
+    },
+    {
+      "id": "azabu-terrace",
+      "name": {
+        "zh": "麻布 Terrace 公寓",
+        "en": "Azabu Terrace Residence",
+        "ja": "麻布テラスレジデンス"
+      },
+      "area": "Minato / Azabu",
+      "station": "Azabu-juban Station",
+      "walkMinutes": 7,
+      "description": {
+        "zh": "靠近麻布生活区的安静公寓，适合希望兼顾便利和品质感的东京住宿客人。",
+        "en": "A refined residence near Azabu for guests who want quiet comfort, convenience, and a polished Tokyo base.",
+        "ja": "麻布エリアに近い上質なレジデンス。静けさ、利便性、東京らしい滞在を大切にする方に適しています。"
+      },
+      "coverImage": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1600&auto=format&fit=crop",
+      "gallery": [
+        {
+          "id": "azabu-building-1",
+          "url": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1600&auto=format&fit=crop",
+          "type": "cover",
+          "alt": "Azabu studio"
+        },
+        {
+          "id": "azabu-building-2",
+          "url": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?q=80&w=1600&auto=format&fit=crop",
+          "type": "gallery",
+          "alt": "Azabu dining"
+        }
+      ],
+      "featured": true,
+      "order": 2,
+      "tags": ["Long Stay", "Business Stay", "Near Station"],
+      "roomTypes": [
+        {
+          "id": "studio",
+          "name": {
+            "zh": "Studio 户型",
+            "en": "Studio Room Type",
+            "ja": "Studioタイプ"
+          },
+          "roomType": "Studio",
+          "capacity": "1-2",
+          "size": "28 sqm",
+          "rooms": ["501", "502"],
+          "description": {
+            "zh": "精致 Studio 户型，适合短住和商务差旅。",
+            "en": "A refined studio layout for short stays and business travel.",
+            "ja": "短期滞在や出張に適した上質なStudioタイプです。"
+          },
+          "tags": ["Wi-Fi", "Kitchenette", "Elevator"],
+          "amenities": ["Wi-Fi", "Kitchenette", "Washer", "Elevator", "Air Conditioner"],
+          "images": [
+            {
+              "id": "azabu-studio-1",
+              "url": "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1600&auto=format&fit=crop",
+              "type": "cover",
+              "alt": "Studio apartment"
+            },
+            {
+              "id": "azabu-studio-2",
+              "url": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?q=80&w=1600&auto=format&fit=crop",
+              "type": "gallery",
+              "alt": "Dining corner"
+            }
+          ],
+          "videos": [],
+          "map": {
+            "type": "google",
+            "embedUrl": "https://www.google.com/maps?q=Azabu%20Tokyo&output=embed",
+            "address": "Azabu, Minato-ku, Tokyo"
+          },
+          "unavailableDates": [{ "start": "2026-08-01", "end": "2026-08-08" }],
+          "status": "published"
+        }
+      ]
+    }
+  ]
+}

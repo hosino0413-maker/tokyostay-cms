@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
+import { BuildingExplorer } from "@/components/BuildingExplorer";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { PropertyExplorer } from "@/components/PropertyExplorer";
-import { getPublishedProperties } from "@/lib/properties";
+import { getFeaturedBuildings } from "@/lib/buildings";
 import type { Locale } from "@/types/property";
 
 function parseLocale(value?: string): Locale {
@@ -11,7 +11,7 @@ function parseLocale(value?: string): Locale {
 
 export default function Home({ searchParams }: { searchParams: { lang?: string } }) {
   const locale = parseLocale(searchParams.lang);
-  const properties = getPublishedProperties();
+  const buildings = getFeaturedBuildings();
 
   return (
     <main>
@@ -27,7 +27,7 @@ export default function Home({ searchParams }: { searchParams: { lang?: string }
         </div>
       </header>
 
-      <PropertyExplorer properties={properties} locale={locale} />
+      <BuildingExplorer buildings={buildings} locale={locale} />
     </main>
   );
 }

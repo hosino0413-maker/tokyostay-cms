@@ -10,7 +10,7 @@ export function PropertyGallery({ images }: { images: MediaImage[] }) {
   const current = images[active] ?? images[0];
 
   if (!current) {
-    return <div id="gallery" className="rounded-[30px] bg-white p-10 text-night/50 shadow-card">No images yet.</div>;
+    return <div id="gallery" className="scroll-mt-32 rounded-[28px] border border-black/[0.06] bg-white/86 p-5 text-night/50 shadow-card md:p-8">No images yet.</div>;
   }
 
   function move(delta: number) {
@@ -18,8 +18,8 @@ export function PropertyGallery({ images }: { images: MediaImage[] }) {
   }
 
   return (
-    <section id="gallery" className="overflow-hidden rounded-[32px] bg-white p-2 shadow-soft ring-1 ring-line md:p-4">
-      <div className="relative h-[360px] overflow-hidden rounded-[26px] bg-line sm:h-[460px] md:h-[640px]">
+    <section id="gallery" className="scroll-mt-32 overflow-hidden rounded-[28px] border border-black/[0.06] bg-white/86 p-5 shadow-card md:p-8">
+      <div className="relative aspect-[4/3] w-full max-w-full overflow-hidden rounded-[20px] bg-line md:aspect-[16/10]">
         <Image src={current.url} alt={current.alt} fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-ink/42 to-transparent p-4 text-white">
           <span className="inline-flex items-center gap-2 rounded-full bg-ink/50 px-3 py-1.5 text-xs font-bold backdrop-blur">
@@ -37,7 +37,7 @@ export function PropertyGallery({ images }: { images: MediaImage[] }) {
           </div>
         )}
       </div>
-      <div className="mt-3 flex gap-3 overflow-x-auto px-1 pb-2">
+      <div className="mt-4 flex max-w-full gap-3 overflow-x-auto px-1 pb-2">
         {images.map((image, index) => (
           <button
             key={image.id}

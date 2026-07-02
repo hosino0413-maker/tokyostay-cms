@@ -5,9 +5,9 @@ import { coverImage, text } from "@/lib/properties";
 import type { Locale, Property } from "@/types/property";
 
 const labels = {
-  en: { view: "View Details", guests: "guests" },
-  zh: { view: "查看详情", guests: "人" },
-  ja: { view: "詳細を見る", guests: "名" }
+  en: { view: "View Details", guests: "guests", available: "Available" },
+  zh: { view: "查看详情", guests: "人", available: "可查看" },
+  ja: { view: "詳細を見る", guests: "名", available: "公開中" }
 } as const;
 
 export function PropertyCard({ property, locale }: { property: Property; locale: Locale }) {
@@ -27,7 +27,7 @@ export function PropertyCard({ property, locale }: { property: Property; locale:
             <Image src={collage[0].url} alt={collage[0].alt} fill sizes="(max-width: 768px) 100vw, 45vw" className="object-cover transition duration-500 group-hover:scale-105" />
           )}
           <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-bold text-ink shadow-card">
-            {property.status === "published" ? "Available" : property.status}
+            {property.status === "published" ? t.available : property.status}
           </div>
         </div>
         <div className="hidden grid-rows-2 gap-1 md:grid">

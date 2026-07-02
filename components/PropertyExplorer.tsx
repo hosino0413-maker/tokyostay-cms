@@ -1,67 +1,60 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Building2, Heart, MapPinned, Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, MapPin, Search, Users } from "lucide-react";
 import { PropertyCard } from "@/components/PropertyCard";
 import { text } from "@/lib/properties";
 import type { Locale, Property } from "@/types/property";
 
+const defaultHeroImage =
+  "https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?q=80&w=1800&auto=format&fit=crop";
+
 const copy = {
   en: {
-    eyebrow: "Tokyo furnished stays",
-    title: "Tokyo Vacation Rentals",
-    subtitle: "Modern Living in Tokyo",
+    title: "Find your Tokyo stay",
     lead: "Curated homes for short stays, monthly stays, relocation, and business travel across Tokyo.",
-    search: "Search area, station, room type, or amenity",
+    area: "Area",
     checkIn: "Check-in",
     checkOut: "Check-out",
     guests: "Guests",
-    allAreas: "All areas",
-    allGuests: "Any guests",
+    search: "Search",
     featured: "Featured Properties",
-    map: "Explore by Map",
-    about: "About TokyoStay",
-    aboutBody: "TokyoStay presents clean, private property pages for guests to review rooms, photos, availability, video, and map context without public contact details.",
     noResults: "No properties match these filters yet.",
-    quick: ["Popular", "Family", "Business", "Near Station", "Long Stay"]
+    stays: "stays"
   },
   zh: {
-    eyebrow: "东京精选住宿",
-    title: "Tokyo Vacation Rentals",
-    subtitle: "Modern Living in Tokyo",
-    lead: "适合东京短住、长租、搬家过渡与商务差旅的精选房源。",
-    search: "搜索区域、车站、房型或设施",
+    title: "寻找你的东京住宿",
+    lead: "适合东京短住、月租、搬家过渡与商务差旅的精选房源。",
+    area: "区域",
     checkIn: "入住日期",
     checkOut: "退房日期",
     guests: "入住人数",
-    allAreas: "全部区域",
-    allGuests: "不限人数",
-    featured: "精选房源",
-    map: "地图探索",
-    about: "关于 TokyoStay",
-    aboutBody: "TokyoStay 用干净、私密的房源展示页帮助客户查看图片、日历、视频和地图信息，前台不会公开联系方式。",
+    search: "搜索",
+    featured: "Featured Properties",
     noResults: "暂时没有符合筛选条件的房源。",
-    quick: ["热门", "家庭", "商务", "近车站", "长住"]
+    stays: "套房源"
   },
   ja: {
-    eyebrow: "東京の厳選ステイ",
-    title: "Tokyo Vacation Rentals",
-    subtitle: "Modern Living in Tokyo",
-    lead: "短期滞在、月単位滞在、引越し準備、出張に適した東京の住まいを紹介します。",
-    search: "エリア、駅、間取り、設備を検索",
+    title: "東京の滞在先を探しましょう",
+    lead: "短期滞在、月単位の滞在、引越し準備、出張に適した東京の住まいを紹介します。",
+    area: "エリア",
     checkIn: "チェックイン",
     checkOut: "チェックアウト",
     guests: "人数",
-    allAreas: "すべてのエリア",
-    allGuests: "人数指定なし",
-    featured: "おすすめ物件",
-    map: "地図で探す",
-    about: "TokyoStayについて",
-    aboutBody: "TokyoStayは、連絡先を公開せずに写真、空室カレンダー、動画、地図を確認できる物件ページを提供します。",
+    search: "検索する",
+    featured: "Featured Properties",
     noResults: "条件に一致する物件はまだありません。",
-    quick: ["人気", "家族向け", "ビジネス", "駅近", "長期滞在"]
+    stays: "件"
   }
 } as const;
+
+const areaOptions = [
+  { value: "all", label: { en: "All areas", zh: "全部区域", ja: "すべて" }, keywords: [] },
+  { value: "shinjuku", label: { en: "Shinjuku", zh: "新宿", ja: "新宿" }, keywords: ["shinjuku", "jingumae", "新宿"] },
+  { value: "shibuya", label: { en: "Shibuya", zh: "涉谷", ja: "渋谷" }, keywords: ["shibuya", "渋谷", "涉谷"] },
+  { value: "taito", label: { en: "Taito", zh: "台东", ja: "台東" }, keywords: ["taito", "asakusa", "台东", "台東", "浅草"] },
+  { value: "bunkyo", label: { en: "Bunkyo", zh: "文京", ja: "文京" }, keywords: ["bunkyo", "文京"] }
+];
 
 function capacityMax(capacity: string) {
   const matches = capacity.match(/\d+/g);
@@ -69,151 +62,126 @@ function capacityMax(capacity: string) {
   return Math.max(...matches.map(Number));
 }
 
+function areaMatches(property: Property, selectedArea: string) {
+  if (selectedArea === "all") return true;
+  const option = areaOptions.find((item) => item.value === selectedArea);
+  if (!option) return true;
+  const haystack = [
+    property.area,
+    text(property.title, "en"),
+    text(property.title, "zh"),
+    text(property.title, "ja")
+  ].join(" ").toLowerCase();
+  return option.keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+}
+
 export function PropertyExplorer({ properties, locale }: { properties: Property[]; locale: Locale }) {
   const t = copy[locale];
-  const [query, setQuery] = useState("");
   const [area, setArea] = useState("all");
-  const [guests, setGuests] = useState("all");
-  const [quick, setQuick] = useState("");
+  const [guests, setGuests] = useState("1");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [heroImage, setHeroImage] = useState(defaultHeroImage);
 
-  const areas = useMemo(() => Array.from(new Set(properties.map((property) => property.area))), [properties]);
+  useEffect(() => {
+    const saved = localStorage.getItem("tokyostay-home-hero-url");
+    if (saved) setHeroImage(saved);
+  }, []);
 
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    const guestNumber = guests === "all" ? 0 : Number(guests);
-
-    return properties.filter((property) => {
-      const haystack = [
-        text(property.title, locale),
-        property.area,
-        property.roomType,
-        property.traffic,
-        property.amenities.join(" ")
-      ].join(" ").toLowerCase();
-      const matchesQuery = !normalized || haystack.includes(normalized);
-      const matchesArea = area === "all" || property.area === area;
-      const matchesGuests = !guestNumber || capacityMax(property.capacity) >= guestNumber;
-      const matchesQuick = !quick || haystack.includes(quick.toLowerCase()) || property.amenities.join(" ").toLowerCase().includes(quick.toLowerCase());
-      return matchesQuery && matchesArea && matchesGuests && matchesQuick;
-    });
-  }, [area, guests, locale, properties, query, quick]);
+  const featured = useMemo(() => {
+    const guestNumber = Number(guests || 1);
+    return properties
+      .filter((property) => areaMatches(property, area))
+      .filter((property) => capacityMax(property.capacity) >= guestNumber)
+      .slice(0, 6);
+  }, [area, guests, properties]);
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-line bg-[#f8f6f1]">
-        <div className="absolute inset-x-0 top-0 h-28 bg-white/70" />
-        <div className="relative mx-auto grid max-w-7xl gap-8 px-5 pb-10 pt-8 md:grid-cols-[1fr_0.86fr] md:pb-14 md:pt-12">
-          <div className="flex min-h-[440px] flex-col justify-between">
-            <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-brand shadow-card">
-                <Sparkles size={14} /> {t.eyebrow}
-              </p>
-              <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-[0.98] tracking-tight text-ink md:text-7xl">
-                {t.title}
-                <span className="mt-3 block text-night/58">{t.subtitle}</span>
-              </h1>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-night/62 md:text-lg">{t.lead}</p>
-            </div>
+      <section className="bg-white px-4 pb-12 pt-6 md:px-8 md:pb-16 md:pt-10">
+        <div className="relative mx-auto max-w-7xl">
+          <div className="relative min-h-[620px] overflow-hidden rounded-[34px] bg-ink shadow-soft md:min-h-[560px]">
+            <img src={heroImage} alt="Tokyo skyline" className="absolute inset-0 h-full w-full object-cover" />
+          </div>
 
-            <div className="mt-8 rounded-[28px] border border-line bg-white p-3 shadow-soft">
-              <div className="grid gap-2 lg:grid-cols-[1.4fr_0.8fr_0.8fr_0.72fr_auto]">
-                <label className="flex items-center gap-3 rounded-2xl bg-mist px-4 py-3">
-                  <Search size={18} className="text-night/45" />
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} className="w-full bg-transparent text-sm outline-none placeholder:text-night/45" />
+          <div className="relative z-10 -mt-[580px] flex min-h-[580px] items-center md:-mt-[560px] md:min-h-[560px] md:px-8">
+            <div className="w-full max-w-[540px] rounded-[28px] bg-white p-6 shadow-soft ring-1 ring-line md:p-10">
+              <h1 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight text-ink md:text-5xl">
+                {t.title}
+              </h1>
+              <p className="mt-4 max-w-md text-base leading-7 text-night/62">{t.lead}</p>
+
+              <div className="mt-7 space-y-3">
+                <label className="block rounded-2xl border border-line bg-white px-4 py-3">
+                  <span className="flex items-center gap-2 text-xs font-bold text-ink">
+                    <MapPin size={14} /> {t.area}
+                  </span>
+                  <select value={area} onChange={(event) => setArea(event.target.value)} className="mt-2 w-full bg-transparent text-lg outline-none">
+                    {areaOptions.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label[locale]}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-                <input type="date" aria-label={t.checkIn} className="rounded-2xl bg-mist px-4 py-3 text-sm text-night/70 outline-none" />
-                <input type="date" aria-label={t.checkOut} className="rounded-2xl bg-mist px-4 py-3 text-sm text-night/70 outline-none" />
-                <select value={guests} onChange={(event) => setGuests(event.target.value)} aria-label={t.guests} className="rounded-2xl bg-mist px-4 py-3 text-sm text-night/70 outline-none">
-                  <option value="all">{t.allGuests}</option>
-                  {[1, 2, 3, 4].map((value) => (
-                    <option key={value} value={value}>{value}+</option>
-                  ))}
-                </select>
-                <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-ink px-5 py-3 text-sm font-semibold text-white">
-                  <SlidersHorizontal size={17} /> Filter
+
+                <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-line bg-white">
+                  <label className="block border-r border-line px-4 py-3">
+                    <span className="flex items-center gap-2 text-xs font-bold text-ink">
+                      <CalendarDays size={14} /> {t.checkIn}
+                    </span>
+                    <input value={checkIn} onChange={(event) => setCheckIn(event.target.value)} type="date" className="mt-2 w-full bg-transparent text-sm text-night/70 outline-none" />
+                  </label>
+                  <label className="block px-4 py-3">
+                    <span className="flex items-center gap-2 text-xs font-bold text-ink">
+                      <CalendarDays size={14} /> {t.checkOut}
+                    </span>
+                    <input value={checkOut} onChange={(event) => setCheckOut(event.target.value)} type="date" className="mt-2 w-full bg-transparent text-sm text-night/70 outline-none" />
+                  </label>
+                </div>
+
+                <label className="block rounded-2xl border border-line bg-white px-4 py-3">
+                  <span className="flex items-center gap-2 text-xs font-bold text-ink">
+                    <Users size={14} /> {t.guests}
+                  </span>
+                  <select value={guests} onChange={(event) => setGuests(event.target.value)} className="mt-2 w-full bg-transparent text-lg outline-none">
+                    {[1, 2, 3, 4, 5, 6].map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E61E5D] px-5 py-4 text-base font-semibold text-white shadow-card transition hover:bg-[#d81352]">
+                  <Search size={18} /> {t.search}
                 </button>
               </div>
             </div>
           </div>
-
-          <div className="relative min-h-[420px] min-w-0 overflow-hidden rounded-[36px] bg-ink shadow-soft">
-            <img
-              src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1600&auto=format&fit=crop"
-              alt="Tokyo skyline"
-              className="block h-full w-full object-cover opacity-92"
-            />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/72 to-transparent p-6 text-white">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">TokyoStay</p>
-              <p className="mt-2 max-w-sm text-2xl font-semibold">Clean property pages for confident guest decisions.</p>
-            </div>
-          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          <button onClick={() => setArea("all")} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-line ${area === "all" ? "bg-ink text-white" : "bg-white text-night/68"}`}>
-            {t.allAreas}
-          </button>
-          {areas.map((item) => (
-            <button key={item} onClick={() => setArea(item)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-line ${area === item ? "bg-ink text-white" : "bg-white text-night/68"}`}>
-              {item}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-          {t.quick.map((item) => (
-            <button key={item} onClick={() => setQuick(quick === item ? "" : item)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-line ${quick === item ? "bg-brand text-white" : "bg-white text-night/68"}`}>
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-5 pb-10">
-        <div className="mb-5 flex items-end justify-between gap-4">
+      <section className="mx-auto max-w-7xl px-5 pb-14 pt-2">
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-brand">Collection</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{t.featured}</h2>
           </div>
-          <p className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-night/55 ring-1 ring-line">{filtered.length} stays</p>
+          <p className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-night/55 ring-1 ring-line">
+            {featured.length} {t.stays}
+          </p>
         </div>
-        {filtered.length ? (
+
+        {featured.length ? (
           <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((property) => (
+            {featured.map((property) => (
               <PropertyCard key={property.id} property={property} locale={locale} />
             ))}
           </div>
         ) : (
           <div className="rounded-[28px] border border-line bg-white p-10 text-center text-night/58 shadow-card">{t.noResults}</div>
         )}
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-7 px-5 pb-14 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-[28px] bg-white p-7 shadow-card ring-1 ring-line">
-          <div className="mb-5 inline-flex rounded-full bg-mist p-3 text-brand">
-            <Building2 size={20} />
-          </div>
-          <h2 className="text-2xl font-semibold">{t.about}</h2>
-          <p className="mt-4 leading-8 text-night/62">{t.aboutBody}</p>
-        </div>
-        <div className="overflow-hidden rounded-[28px] bg-white shadow-card ring-1 ring-line">
-          <div className="flex items-center justify-between border-b border-line px-6 py-4">
-            <h2 className="flex items-center gap-2 text-xl font-semibold"><MapPinned size={20} className="text-brand" /> {t.map}</h2>
-            <span className="text-sm text-night/45">Tokyo</span>
-          </div>
-          <div className="grid min-h-[280px] place-items-center bg-[radial-gradient(circle_at_20%_20%,rgba(184,70,47,.18),transparent_28%),linear-gradient(135deg,#f6f4ef,#ffffff)] p-8">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {properties.map((property) => (
-                <a key={property.id} href={`/property/${property.id}?lang=${locale}`} className="rounded-2xl bg-white/90 p-4 shadow-card ring-1 ring-line transition hover:-translate-y-0.5">
-                  <div className="mb-2 inline-flex rounded-full bg-brand/10 p-2 text-brand"><Heart size={16} /></div>
-                  <p className="font-semibold">{text(property.title, locale)}</p>
-                  <p className="mt-1 text-sm text-night/55">{property.area}</p>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
       </section>
     </>
   );

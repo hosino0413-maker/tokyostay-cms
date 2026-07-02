@@ -28,22 +28,22 @@ export function AvailabilityCalendar({ ranges, title = "Unavailable dates" }: { 
   }
 
   return (
-    <div className="rounded-[24px] bg-white p-5 shadow-card ring-1 ring-line">
-      <h2 className="mb-4 text-xl font-semibold">{title}</h2>
-      <div className="mb-5 flex items-center justify-between">
+    <div className="w-full rounded-[28px] border border-black/[0.06] bg-white/88 p-5 shadow-card md:p-7">
+      <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+      <div className="mb-4 flex items-center justify-between">
         <button onClick={() => move(-1)} className="rounded-full border border-line p-2 text-night/70 hover:bg-mist" aria-label="Previous month">
           <ChevronLeft size={18} />
         </button>
-        <h3 className="text-lg font-semibold">
+        <h3 className="text-base font-semibold">
           {month.toLocaleDateString("en", { month: "long", year: "numeric" })}
         </h3>
         <button onClick={() => move(1)} className="rounded-full border border-line p-2 text-night/70 hover:bg-mist" aria-label="Next month">
           <ChevronRight size={18} />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5">
         {dayNames.map((day) => (
-          <div key={day} className="py-2 text-center text-[11px] font-bold uppercase text-night/45">
+          <div key={day} className="py-1.5 text-center text-[10px] font-bold uppercase text-night/45">
             {day}
           </div>
         ))}
@@ -52,7 +52,7 @@ export function AvailabilityCalendar({ ranges, title = "Unavailable dates" }: { 
           return (
             <div
               key={date?.toISOString() ?? `empty-${index}`}
-              className={`grid aspect-square place-items-center rounded-2xl border text-sm ${
+              className={`grid aspect-square min-w-0 place-items-center rounded-xl border text-sm ${
                 !date
                   ? "border-transparent"
                   : blocked

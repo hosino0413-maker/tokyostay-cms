@@ -35,6 +35,7 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
   const [properties, setProperties] = useState<Property[]>(initialProperties);
   const [currentId, setCurrentId] = useState(initialProperties[0]?.id ?? "");
   const [locale, setLocale] = useState<Locale>("zh");
+  const [homeHeroUrl, setHomeHeroUrl] = useState("https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?q=80&w=1800&auto=format&fit=crop");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [publishResult, setPublishResult] = useState("");
   const current = properties.find((property) => property.id === currentId) ?? properties[0];
@@ -46,6 +47,8 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
       setProperties(parsed);
       setCurrentId(parsed[0]?.id ?? "");
     }
+    const savedHero = localStorage.getItem("tokyostay-home-hero-url");
+    if (savedHero) setHomeHeroUrl(savedHero);
   }, []);
 
   useEffect(() => {
@@ -122,6 +125,30 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
 
     if (uploadedImages.length) patchCurrent({ images: [...current.images, ...uploadedImages] });
     if (uploadedVideos.length) patchCurrent({ videos: [...current.videos, ...uploadedVideos] });
+  }
+
+  async function uploadHomeHero(files: FileList | File[]) {
+    const file = Array.from(files)[0];
+    if (!file) return;
+    const key = uid(file.name);
+    setUploadProgress((items) => ({ ...items, [key]: 20 }));
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("propertyId", "homepage");
+    formData.append("kind", "image");
+    setUploadProgress((items) => ({ ...items, [key]: 65 }));
+
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const payload = (await res.json()) as { url: string };
+    setUploadProgress((items) => ({ ...items, [key]: 100 }));
+    setHomeHeroUrl(payload.url);
+    localStorage.setItem("tokyostay-home-hero-url", payload.url);
+
+    window.setTimeout(() => setUploadProgress((items) => {
+      const next = { ...items };
+      delete next[key];
+      return next;
+    }), 800);
   }
 
   function setCover(imageId: string) {
@@ -228,6 +255,29 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
 
         <section className="overflow-auto p-5">
           <div className="mx-auto max-w-4xl space-y-5">
+            <EditorPanel title="首页海报图">
+              <Notice>本设置先用于本地预览。你确认满意后，再单独同步到线上。可以粘贴图片 URL，也可以选择图片作为首页海报。</Notice>
+              <Field label="首页海报图 URL">
+                <input
+                  value={homeHeroUrl}
+                  onChange={(event) => {
+                    setHomeHeroUrl(event.target.value);
+                    localStorage.setItem("tokyostay-home-hero-url", event.target.value);
+                  }}
+                  className="input"
+                />
+              </Field>
+              <DropZone label="选择首页海报图" hint="建议使用东京城市、东京塔、街景等横向大图" accept="image/*" onFiles={uploadHomeHero} />
+              <div className="overflow-hidden rounded-2xl border border-line bg-white">
+                <div className="relative h-56 bg-line">
+                  <Image src={homeHeroUrl} alt="Homepage hero" fill className="object-cover" />
+                </div>
+              </div>
+              <Link href="/?lang=zh" target="_blank" className="inline-flex rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">
+                打开首页本地预览
+              </Link>
+            </EditorPanel>
+
             <EditorPanel title="基础信息">
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="房源 ID"><input value={current.id} onChange={(e) => { const id = e.target.value; patchCurrent({ id }); setCurrentId(id); }} className="input" /></Field>

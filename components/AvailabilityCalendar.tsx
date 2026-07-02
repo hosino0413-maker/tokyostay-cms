@@ -7,7 +7,7 @@ import type { DateRange } from "@/types/property";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function AvailabilityCalendar({ ranges }: { ranges: DateRange[] }) {
+export function AvailabilityCalendar({ ranges, title = "Unavailable dates" }: { ranges: DateRange[]; title?: string }) {
   const [month, setMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -29,6 +29,7 @@ export function AvailabilityCalendar({ ranges }: { ranges: DateRange[] }) {
 
   return (
     <div className="rounded-[24px] bg-white p-5 shadow-card ring-1 ring-line">
+      <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       <div className="mb-5 flex items-center justify-between">
         <button onClick={() => move(-1)} className="rounded-full border border-line p-2 text-night/70 hover:bg-mist" aria-label="Previous month">
           <ChevronLeft size={18} />
@@ -51,7 +52,7 @@ export function AvailabilityCalendar({ ranges }: { ranges: DateRange[] }) {
           return (
             <div
               key={date?.toISOString() ?? `empty-${index}`}
-              className={`aspect-square rounded-2xl border text-center text-sm leading-[3.1rem] ${
+              className={`grid aspect-square place-items-center rounded-2xl border text-sm ${
                 !date
                   ? "border-transparent"
                   : blocked

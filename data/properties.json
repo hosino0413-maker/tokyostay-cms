@@ -21,12 +21,12 @@
     },
     "sellingPoints": [
       {
-        "zh": "步行可达车站与生活商圈",
+        "zh": "步行可达车站与日常生活设施",
         "en": "Walkable to stations and daily essentials",
         "ja": "駅と生活施設へ徒歩圏内"
       },
       {
-        "zh": "家具家电齐全，拎包入住",
+        "zh": "家具家电齐全，可直接入住",
         "en": "Fully furnished and move-in ready",
         "ja": "家具家電付きですぐに入居可能"
       }
@@ -93,13 +93,13 @@
     "size": "28 sqm",
     "traffic": "7 min walk to metro",
     "description": {
-      "zh": "靠近麻布生活区的精致单间，适合希望兼顾安静、便利与城市质感的住客。",
+      "zh": "靠近麻布生活区的精致单间，适合希望兼顾安静、便利与城市质感的住客。空间紧凑但功能完整，适合作为东京短住或长住据点。",
       "en": "A refined studio near Azabu, shaped for guests who want quiet comfort, convenience, and a polished Tokyo base.",
-      "ja": "麻布エリアに近い上質なワンルーム。静けさ、利便性、東京らしい雰囲気を大切にする方におすすめです。"
+      "ja": "麻布エリアに近い上質なワンルームです。静けさ、利便性、東京らしい雰囲気を大切にする方におすすめです。"
     },
     "sellingPoints": [
       {
-        "zh": "港区热门生活半径",
+        "zh": "港区生活半径，通勤与购物便利",
         "en": "Prime Minato lifestyle radius",
         "ja": "港区の人気生活圏"
       }

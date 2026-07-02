@@ -1,6 +1,6 @@
 # TokyoStay 房源展示 CMS
 
-TokyoStay CMS 是一个基于 Next.js + TypeScript + Tailwind CSS 的轻量房源展示与后台发布系统。目标工作流是：后台新增房源，拖拽上传图片/视频，AI 生成三语言介绍，设置不可入住日期和地图，点击发布到网站，然后把房源展示链接放到 TokyoStay 落地页按钮中。
+这是一个基于 Next.js + TypeScript + Tailwind CSS 的 TokyoStay 房源展示和后台编辑系统。它的目标是做成轻量 CMS：后台编辑房源、上传图片/视频、AI 生成多语言介绍、设置不可入住日期，然后生成前台房源展示页。
 
 ## 本地运行
 
@@ -9,33 +9,65 @@ npm install
 npm run dev
 ```
 
-本地地址：
+打开：
 
-- 前台房源列表：http://localhost:3000
-- 后台编辑器：http://localhost:3000/admin
+- 前台房源列表：`http://localhost:3000`
+- 后台编辑器：`http://localhost:3000/admin`
 
-构建测试：
+构建：
 
 ```bash
 npm run build
 ```
 
-## 已实现内容
+## 现在已经实现的内容
 
-- 前台房源列表、三图拼图房源卡片、区域/人数/关键词筛选。
-- 房源详情页：大图轮播、小图预览、房源介绍、设施标签、不可入住日历、视频、地图、私密咨询表单。
-- 前台不公开联系方式。
-- 后台三栏 CMS：左侧房源列表，中间编辑区，右侧实时预览。
-- 新增、删除、复制房源，修改标题、区域、价格备注、房型、人数、面积、交通、介绍、设施、地图、视频、不可入住日期和上下架状态。
-- 拖拽调整房源排序，拖拽调整图片排序，设置封面图。
-- 图片和 MP4 视频拖拽上传到腾讯 COS。
-- AI 生成介绍接口 `/api/ai`，没有 `OPENAI_API_KEY` 时返回模拟三语言结果。
-- 一键发布接口 `/api/publish`，生成并上传静态房源列表页和详情页到 COS。
-- 咨询接口 `/api/inquiry` 与浏览统计接口 `/api/analytics` 已预留，后续可接数据库和分销系统。
+- 前台房源列表、三图拼图、房源详情页
+- 图片轮播、缩略图、视频区域、地图区域
+- 不可入住日历
+- 后台三栏编辑器：左侧房源列表、中间编辑区、右侧实时预览
+- 新增、删除、排序、上下架、设施、地图、视频、不可入住日期
+- 中文、英文、日文三个语言字段
+- `AI 生成介绍` 接口预留；没有 `OPENAI_API_KEY` 时返回模拟内容
+- `发布到网站` 接口预留；开发模式下会生成发布链接和 JSON 快照
+- COS 上传接口预留；前端不会暴露腾讯云 SecretId / SecretKey
 
-## 环境变量
+## 重要说明：上传图片和视频到底到哪里？
 
-复制 `.env.example` 为 `.env.local`，并填写：
+当前版本的 `/api/upload` 是安全上传接口的预留版本。
+
+如果你没有配置腾讯云 COS，它不会真的把文件上传到互联网。它只会返回一个 COS 风格的模拟 URL，例如：
+
+```text
+https://img.tokyostay.asia/images/jingu6/living-room-123.jpg
+```
+
+真实运营时，图片和视频应该上传到腾讯云 COS，例如：
+
+```text
+images/{propertyId}/文件名
+videos/{propertyId}/文件名
+```
+
+推荐绑定 CDN 域名：
+
+```text
+img.tokyostay.asia
+```
+
+中国大陆能否正常查看图片和播放视频，取决于：
+
+- COS Bucket 是否真实存在
+- COS 地域是否适合中国大陆访问
+- 是否绑定 CDN/EdgeOne 加速域名
+- Bucket 或 CDN 是否允许公网读取
+- 视频是否使用 MP4/H.264 等浏览器兼容格式
+
+如果图片/视频放在腾讯云 COS + 国内 CDN，一般中国大陆访问会比 YouTube、Google Drive、海外对象存储稳定得多。
+
+## COS 环境变量
+
+复制 `.env.example` 为 `.env.local`：
 
 ```bash
 TENCENT_SECRET_ID=
@@ -43,72 +75,53 @@ TENCENT_SECRET_KEY=
 TENCENT_COS_BUCKET=
 TENCENT_COS_REGION=
 TENCENT_COS_DOMAIN=https://img.tokyostay.asia
-
-TENCENT_DEPLOY_COS_BUCKET=tokyostay-1445455726
-TENCENT_DEPLOY_COS_REGION=ap-hongkong
-
 OPENAI_API_KEY=
-NEXT_PUBLIC_SITE_URL=https://tokyostay.asia
-NEXT_PUBLIC_CMS_API_URL=https://tokyostay-cms-gshaiql6.edgeone.cool
+NEXT_PUBLIC_SITE_URL=https://property.tokyostay.asia
 ```
 
-说明：
+注意：SecretId / SecretKey 只能在服务端 API 使用，不能写进前端页面。
 
-- `TENCENT_SECRET_ID` 和 `TENCENT_SECRET_KEY` 只在后端 API 中使用，不能写到前端页面。
-- `TENCENT_COS_BUCKET` 用于图片和视频上传。
-- `TENCENT_DEPLOY_COS_BUCKET` 用于发布静态展示页。
-- `TENCENT_COS_DOMAIN` 建议配置为 COS/CDN 图片域名，例如 `https://img.tokyostay.asia`。
-- `NEXT_PUBLIC_SITE_URL` 是发布后返回给你的房源展示域名。
-- `NEXT_PUBLIC_CMS_API_URL` 用于静态 COS 页面提交咨询表单到在线后台 API。
+## 重要说明：点击“发布到网站”会不会真的上互联网？
 
-## 新增房源和发布
+不会自动神奇上线。
 
-1. 打开 `/admin`。
-2. 点击“新增房源”。
-3. 填写中文、英文、日文标题与介绍。
-4. 拖拽上传图片和 MP4 视频。
-5. 设置封面图，并拖拽调整图片顺序。
-6. 设置不可入住日期。
-7. 选择 Google Map / 高德地图 / 图片地图。
-8. 点击“AI生成介绍”补充三语言内容。
-9. 点击“发布到网站”。
-10. 复制返回的房源详情链接，放到 TokyoStay 落地页按钮中。
+当前 `发布到网站` 做的是：
 
-## 腾讯 COS 和视频播放
+1. 把当前房源状态改为 `published`
+2. 调用 `/api/publish`
+3. 根据 `NEXT_PUBLIC_SITE_URL` 和房源 ID 返回一个链接
+4. 在开发环境写入 `outputs/{propertyId}.published.json`，方便检查发布数据
 
-图片建议上传到：
+也就是说，如果项目还没有部署到 Tencent EdgeOne Pages、云服务器或其他正式环境，点击发布只是在本地生成“将来应该访问的链接”。
 
-```text
-images/{propertyId}/文件名
-```
+真实上线需要先完成：
 
-视频建议上传到：
+- 把 Next.js 项目部署到 EdgeOne Pages 或服务器
+- 绑定域名，例如 `property.tokyostay.asia`
+- 配置 `NEXT_PUBLIC_SITE_URL=https://property.tokyostay.asia`
+- 配置 COS 上传和媒体 CDN
+- 后续如果需要后台权限，还要增加登录鉴权
 
-```text
-videos/{propertyId}/文件名
-```
+## 新增和发布房源流程
 
-如果希望中国大陆访问图片和视频更稳定，建议图片/视频走腾讯 COS + CDN/EdgeOne，并确认：
+1. 打开 `/admin`
+2. 点击 `新增房源`
+3. 填写中文、英文、日文标题和介绍
+4. 拖拽上传图片或 MP4 视频
+5. 设置封面图并拖拽调整图片排序
+6. 设置不可入住日期段
+7. 选择 Google Map / 高德地图 / 图片地图
+8. 点击 `AI 生成介绍`
+9. 点击 `发布到网站`
+10. 复制返回的房源链接
 
-- Bucket 所在区域适合目标访问人群。
-- Bucket 或 CDN 允许公开读取对应静态资源。
-- 视频使用 MP4/H.264 等主流浏览器兼容格式。
-- 如需中国大陆加速或绑定特定子域名，需按腾讯云规则处理备案。
+## 建议部署方式
 
-## 部署建议
-
-- Next.js 后台：部署到 Tencent EdgeOne Pages 或支持 Next.js API Routes 的服务。
-- 静态展示页：由 `/api/publish` 上传到 COS，可通过已绑定的 `tokyostay.asia/deploy/...` 访问。
-- 图片/视频：COS + CDN/EdgeOne。
+- 前台和后台：Tencent EdgeOne Pages 或腾讯云服务器
+- 图片/视频：腾讯云 COS + CDN/EdgeOne
 - 域名建议：
-  - 落地页和房源展示：`tokyostay.asia`
-  - 后台：EdgeOne 默认域名，或备案后使用 `admin.tokyostay.asia`
-  - 图片/视频：`img.tokyostay.asia`
+  - 前台：`property.tokyostay.asia`
+  - 后台：`admin.tokyostay.asia`
+  - 图片视频：`img.tokyostay.asia`
 
-## 后续待完成
-
-- 后台登录权限和管理员管理。
-- 数据库化保存房源、咨询、统计和收藏。
-- 分销系统：分销员专属链接、客户归属、权限隔离和总后台统计。
-- PDF 导出。
-- AI 图片识别、翻译检查和标签推荐增强。
+如果使用纯静态 COS 托管，需要把 API routes 移到云函数或其他后端服务；否则上传、AI、发布 API 无法运行。

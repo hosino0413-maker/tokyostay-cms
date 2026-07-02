@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import COS from "cos-nodejs-sdk-v5";
 
+export const runtime = "nodejs";
+
 function safeName(name: string) {
   const dot = name.lastIndexOf(".");
   const base = (dot > -1 ? name.slice(0, dot) : name).replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-|-$/g, "");

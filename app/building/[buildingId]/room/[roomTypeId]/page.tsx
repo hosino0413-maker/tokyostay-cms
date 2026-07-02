@@ -7,7 +7,7 @@ import { PropertyGallery } from "@/components/PropertyGallery";
 import { PropertyInquiryButton } from "@/components/PropertyInquiryButton";
 import { PropertySectionNav } from "@/components/PropertySectionNav";
 import { MapPanel, VideoPanel } from "@/components/VideoAndMap";
-import { getRoomType, stationText } from "@/lib/buildings";
+import { getBuildings, getRoomType, stationText } from "@/lib/buildings";
 import { text } from "@/lib/properties";
 import type { Locale } from "@/types/property";
 
@@ -22,7 +22,12 @@ function parseLocale(value?: string): Locale {
 }
 
 export function generateStaticParams() {
-  return [];
+  return getBuildings().flatMap((building) =>
+    building.roomTypes.map((roomType) => ({
+      buildingId: building.id,
+      roomTypeId: roomType.id
+    }))
+  );
 }
 
 export default function RoomTypeDetail({ params, searchParams }: { params: { buildingId: string; roomTypeId: string }; searchParams: { lang?: string } }) {

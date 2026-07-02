@@ -4,7 +4,7 @@ import { ArrowLeft, Building2, MapPin, TrainFront } from "lucide-react";
 import { BuildingGallery } from "@/components/BuildingGallery";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { RoomTypeCard } from "@/components/RoomTypeCard";
-import { getBuilding, stationText } from "@/lib/buildings";
+import { getBuilding, getBuildings, stationText } from "@/lib/buildings";
 import { text } from "@/lib/properties";
 import type { Locale } from "@/types/property";
 
@@ -19,7 +19,7 @@ function parseLocale(value?: string): Locale {
 }
 
 export function generateStaticParams() {
-  return [];
+  return getBuildings().map((building) => ({ buildingId: building.id }));
 }
 
 export default function BuildingDetail({ params, searchParams }: { params: { buildingId: string }; searchParams: { lang?: string } }) {

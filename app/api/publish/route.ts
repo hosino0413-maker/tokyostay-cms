@@ -1,8 +1,8 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import COS from "cos-nodejs-sdk-v5";
 import { NextRequest, NextResponse } from "next/server";
 import type { Locale, Property } from "@/types/property";
+
+export const runtime = "nodejs";
 
 const deployPrefix = "deploy";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tokyostay.asia";
@@ -101,10 +101,6 @@ export async function POST(request: NextRequest) {
   if (!current?.id || properties.length === 0) {
     return NextResponse.json({ error: "Missing property data" }, { status: 400 });
   }
-
-  const outputDir = path.join(process.cwd(), "outputs", "published");
-  await mkdir(outputDir, { recursive: true });
-  await writeFile(path.join(outputDir, "properties.index.html"), listHtml(properties), "utf8");
 
   const secretId = process.env.TENCENT_SECRET_ID;
   const secretKey = process.env.TENCENT_SECRET_KEY;

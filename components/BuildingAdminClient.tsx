@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Building2, DoorOpen, Eye, Plus, Save, Trash2 } from "lucide-react";
+import { Building2, DoorOpen, Eye, Plus, Save, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { text } from "@/lib/properties";
 import type { Building, Locale, MediaImage, RoomType } from "@/types/property";
@@ -83,6 +83,7 @@ export function BuildingAdminClient({ initialBuildings }: { initialBuildings: Bu
   const [currentBuildingId, setCurrentBuildingId] = useState(initialBuildings[0]?.id ?? "");
   const [currentRoomId, setCurrentRoomId] = useState(initialBuildings[0]?.roomTypes[0]?.id ?? "");
   const [locale, setLocale] = useState<Locale>("zh");
+  const [publishResult, setPublishResult] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -110,6 +111,53 @@ export function BuildingAdminClient({ initialBuildings }: { initialBuildings: Bu
 
   function saveNow() {
     localStorage.setItem(storageKey, JSON.stringify(buildings));
+  }
+
+  async function generateAi() {
+    if (!currentBuilding || !currentRoom) return;
+    const res = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: `${currentBuilding.id}-${currentRoom.id}`,
+        title: currentRoom.name,
+        area: currentBuilding.area,
+        priceNote: "",
+        roomType: currentRoom.roomType,
+        capacity: currentRoom.capacity,
+        size: currentRoom.size,
+        traffic: `${currentBuilding.station} · ${currentBuilding.walkMinutes} min`,
+        description: currentRoom.description,
+        sellingPoints: [],
+        amenities: currentRoom.amenities,
+        images: currentRoom.images,
+        videos: currentRoom.videos,
+        map: currentRoom.map,
+        unavailableDates: currentRoom.unavailableDates,
+        status: currentRoom.status,
+        order: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    });
+    const ai = await res.json();
+    updateRoom({
+      description: ai.description,
+      amenities: Array.from(new Set([...(currentRoom.amenities ?? []), ...(ai.amenities ?? [])])),
+      tags: Array.from(new Set([...(currentRoom.tags ?? []), ...(ai.amenities ?? [])])).slice(0, 6)
+    });
+  }
+
+  async function publishToWebsite() {
+    saveNow();
+    setPublishResult("正在同步到网站...");
+    const res = await fetch("/api/publish-buildings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buildings, currentBuildingId: currentBuilding?.id, currentRoomId: currentRoom?.id })
+    });
+    const payload = await res.json();
+    setPublishResult(res.ok ? payload.listUrl || payload.url || "同步完成" : payload.error || "同步失败，请稍后重试。");
   }
 
   function updateBuilding(patch: Partial<Building>) {
@@ -222,6 +270,12 @@ export function BuildingAdminClient({ initialBuildings }: { initialBuildings: Bu
             <Link href={previewHref} target="_blank" className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm font-semibold shadow-card">
               <Eye size={16} /> 预览
             </Link>
+            <button onClick={generateAi} className="inline-flex items-center gap-2 rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white shadow-card">
+              <Sparkles size={16} /> AI撰写
+            </button>
+            <button onClick={publishToWebsite} className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white shadow-card">
+              <UploadCloud size={16} /> 同步到网站
+            </button>
           </div>
         </div>
       </header>
@@ -350,6 +404,17 @@ export function BuildingAdminClient({ initialBuildings }: { initialBuildings: Bu
                 <Trash2 size={16} /> 删除当前户型
               </button>
             </EditorPanel>
+            {publishResult && (
+              <div className="rounded-[24px] bg-ink p-5 text-white shadow-card">
+                <p className="font-semibold">已同步到线上网站</p>
+                <p className="mt-2 break-all text-sm leading-6 text-white/75">{publishResult}</p>
+                {publishResult.startsWith("http") && (
+                  <Link href={publishResult} target="_blank" className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink">
+                    打开网站
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </section>
 

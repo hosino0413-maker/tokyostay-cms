@@ -254,8 +254,8 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
             </EditorPanel>
 
             <EditorPanel title="图片和视频">
-              <Notice>当前上传接口是 COS 安全上传预留。未接入腾讯 COS SDK 或临时密钥服务前，接口只返回 COS 风格的模拟网络链接，不会真正把文件上传到互联网。</Notice>
-              <DropZone label="拖拽图片到这里" hint="支持多张图片，建议上传到 COS: images/{propertyId}/文件名" accept="image/*" onFiles={(files) => uploadFiles(files, "image")} />
+              <Notice>线上后台会通过后端 API 上传到腾讯 COS，图片保存到 images/房源ID/，视频保存到 videos/房源ID/，成功后自动写入房源数据并用于发布。</Notice>
+              <DropZone label="拖拽图片到这里" hint="支持多张图片上传、预览、排序和设置封面" accept="image/*" onFiles={(files) => uploadFiles(files, "image")} />
               <div className="grid gap-3 md:grid-cols-3">
                 {current.images.map((image, index) => (
                   <div
@@ -274,7 +274,7 @@ export function AdminClient({ initialProperties }: { initialProperties: Property
                   </div>
                 ))}
               </div>
-              <DropZone label="拖拽 MP4 视频到这里" hint="建议上传到 COS: videos/{propertyId}/文件名；国内播放速度取决于 COS 地域和 CDN 配置" accept="video/mp4" onFiles={(files) => uploadFiles(files, "video")} />
+              <DropZone label="拖拽 MP4 视频到这里" hint="视频上传到 COS 后会生成可访问链接；播放速度取决于 COS 地域和 CDN 配置" accept="video/mp4" onFiles={(files) => uploadFiles(files, "video")} />
               {current.videos.map((video) => (
                 <div key={video.id} className="flex items-center justify-between rounded-2xl border border-line bg-white p-3 text-sm">
                   <span className="truncate">{video.title}</span>

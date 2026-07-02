@@ -23,13 +23,15 @@ const copy = {
     about: "About TokyoStay",
     aboutBody: "TokyoStay presents clean, private property pages for guests to review rooms, photos, availability, video, and map context without public contact details.",
     noResults: "No properties match these filters yet.",
+    filter: "Filter",
+    stays: "stays",
     quick: ["Popular", "Family", "Business", "Near Station", "Long Stay"]
   },
   zh: {
     eyebrow: "东京精选住宿",
     title: "Tokyo Vacation Rentals",
     subtitle: "Modern Living in Tokyo",
-    lead: "适合东京短住、长租、搬家过渡与商务差旅的精选房源。",
+    lead: "适合东京短住、月租、搬家过渡与商务差旅的精选房源。公开页面只展示房源信息，不展示联系方式。",
     search: "搜索区域、车站、房型或设施",
     checkIn: "入住日期",
     checkOut: "退房日期",
@@ -39,15 +41,17 @@ const copy = {
     featured: "精选房源",
     map: "地图探索",
     about: "关于 TokyoStay",
-    aboutBody: "TokyoStay 用干净、私密的房源展示页帮助客户查看图片、日历、视频和地图信息，前台不会公开联系方式。",
+    aboutBody: "TokyoStay 用干净、私密的房源展示页帮助客户查看图片、不可入住日期、视频和地图信息。联系与咨询通过受控表单提交，不在前台公开。",
     noResults: "暂时没有符合筛选条件的房源。",
+    filter: "筛选",
+    stays: "套房源",
     quick: ["热门", "家庭", "商务", "近车站", "长住"]
   },
   ja: {
     eyebrow: "東京の厳選ステイ",
     title: "Tokyo Vacation Rentals",
     subtitle: "Modern Living in Tokyo",
-    lead: "短期滞在、月単位滞在、引越し準備、出張に適した東京の住まいを紹介します。",
+    lead: "短期滞在、月単位の滞在、引越し準備、出張に適した東京の住まいを紹介します。公開ページに連絡先は表示しません。",
     search: "エリア、駅、間取り、設備を検索",
     checkIn: "チェックイン",
     checkOut: "チェックアウト",
@@ -57,8 +61,10 @@ const copy = {
     featured: "おすすめ物件",
     map: "地図で探す",
     about: "TokyoStayについて",
-    aboutBody: "TokyoStayは、連絡先を公開せずに写真、空室カレンダー、動画、地図を確認できる物件ページを提供します。",
+    aboutBody: "TokyoStayは写真、空室カレンダー、動画、地図情報を確認できる、清潔でプライベートな物件ページを提供します。連絡先は公開しません。",
     noResults: "条件に一致する物件はまだありません。",
+    filter: "絞り込み",
+    stays: "件",
     quick: ["人気", "家族向け", "ビジネス", "駅近", "長期滞在"]
   }
 } as const;
@@ -130,7 +136,7 @@ export function PropertyExplorer({ properties, locale }: { properties: Property[
                   ))}
                 </select>
                 <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-ink px-5 py-3 text-sm font-semibold text-white">
-                  <SlidersHorizontal size={17} /> Filter
+                  <SlidersHorizontal size={17} /> {t.filter}
                 </button>
               </div>
             </div>
@@ -176,7 +182,7 @@ export function PropertyExplorer({ properties, locale }: { properties: Property[
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-brand">Collection</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">{t.featured}</h2>
           </div>
-          <p className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-night/55 ring-1 ring-line">{filtered.length} stays</p>
+          <p className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-night/55 ring-1 ring-line">{filtered.length} {t.stays}</p>
         </div>
         {filtered.length ? (
           <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">

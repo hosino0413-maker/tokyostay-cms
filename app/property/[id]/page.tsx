@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BedDouble, CalendarDays, Film, Home, Map, MapPin, Ruler, Sparkles, TrainFront, Users } from "lucide-react";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { InquiryPanel } from "@/components/InquiryPanel";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PropertyGallery } from "@/components/PropertyGallery";
 import { MapPanel, VideoPanel } from "@/components/VideoAndMap";
@@ -20,7 +21,7 @@ const copy = {
     about: "About this stay",
     selling: "Highlights",
     privateInquiry: "Private inquiry",
-    privateBody: "Public pages do not show contact details. Use TokyoStay internal channels or a controlled inquiry form when it is enabled.",
+    privateBody: "Public pages do not show contact details. Guests can submit a controlled inquiry form and the lead can be reviewed later in the admin workflow.",
     unavailable: "Unavailable dates"
   },
   zh: {
@@ -34,7 +35,7 @@ const copy = {
     about: "房源介绍",
     selling: "房源亮点",
     privateInquiry: "私密咨询",
-    privateBody: "公开房源页不展示联系方式。后续可接入受控咨询表单，客户提交后进入后台线索管理。",
+    privateBody: "公开房源页不展示联系方式。客户通过受控咨询表单提交需求，后续进入后台线索管理。",
     unavailable: "不可入住日期"
   },
   ja: {
@@ -47,8 +48,8 @@ const copy = {
     map: "地図",
     about: "物件紹介",
     selling: "おすすめポイント",
-    privateInquiry: "非公開問い合わせ",
-    privateBody: "公開ページには連絡先を表示しません。必要に応じて管理された問い合わせフォームを追加できます。",
+    privateInquiry: "非公開お問い合わせ",
+    privateBody: "公開物件ページに連絡先は表示しません。お問い合わせは管理されたフォームから送信され、後で管理画面で確認できます。",
     unavailable: "利用不可日"
   }
 } as const;
@@ -173,6 +174,7 @@ export default function PropertyDetail({ params, searchParams }: { params: { id:
           </div>
 
           <aside id="calendar" className="scroll-mt-28 space-y-7 lg:sticky lg:top-24 lg:self-start">
+            <InquiryPanel propertyId={property.id} locale={locale} />
             <AvailabilityCalendar ranges={property.unavailableDates} title={t.unavailable} />
           </aside>
         </div>

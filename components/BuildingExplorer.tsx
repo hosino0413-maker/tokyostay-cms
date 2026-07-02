@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, MapPin, Search, Users } from "lucide-react";
 import { BuildingCard } from "@/components/BuildingCard";
 import { text } from "@/lib/properties";
 import type { Building, Locale } from "@/types/property";
 
-const defaultHeroImage =
-  "https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?q=80&w=1800&auto=format&fit=crop";
+const defaultHeroImage = "/images/tokyo-hero.png";
 
 const copy = {
   en: {
@@ -78,13 +77,6 @@ export function BuildingExplorer({ buildings, locale }: { buildings: Building[];
   const [guests, setGuests] = useState("1");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-  const [heroImage, setHeroImage] = useState(defaultHeroImage);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("tokyostay-home-hero-url");
-    if (saved) setHeroImage(saved);
-  }, []);
-
   const featured = useMemo(() => {
     const guestNumber = Number(guests || 1);
     return buildings
@@ -98,7 +90,7 @@ export function BuildingExplorer({ buildings, locale }: { buildings: Building[];
       <section className="bg-white px-4 pb-12 pt-6 md:px-8 md:pb-16 md:pt-10">
         <div className="relative mx-auto max-w-7xl">
           <div className="relative min-h-[620px] overflow-hidden rounded-[34px] bg-ink shadow-soft md:min-h-[560px]">
-            <img src={heroImage} alt="Tokyo residence" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={defaultHeroImage} alt="Tokyo residence" className="absolute inset-0 h-full w-full object-cover" />
           </div>
 
           <div className="relative z-10 -mt-[580px] flex min-h-[580px] items-center md:-mt-[560px] md:min-h-[560px] md:px-8">

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, MapPin, Search, Users } from "lucide-react";
 import { BuildingCard } from "@/components/BuildingCard";
 import { text } from "@/lib/properties";
-import type { Building, Locale } from "@/types/property";
+import type { Building, DateRange, Locale, RoomType } from "@/types/property";
 
 const defaultHeroImage = "/images/tokyo-hero.png";
 
@@ -23,33 +23,33 @@ const copy = {
   },
   zh: {
     title: "寻找你的东京住宿",
-    lead: "适合东京短住、月租、搬家过渡与商务差旅的精选楼盘。",
+    lead: "适合东京短住、月租、搬家过渡与商务差旅的精选房源。",
     area: "区域",
     checkIn: "入住日期",
     checkOut: "退房日期",
     guests: "入住人数",
     search: "搜索",
-    featured: "Featured Residences",
-    noResults: "暂时没有符合条件的楼盘。",
-    residences: "栋楼盘"
+    featured: "精选楼盘",
+    noResults: "暂时没有符合这些条件的空置楼盘。",
+    residences: "套楼盘"
   },
   ja: {
     title: "東京の滞在先を探す",
-    lead: "短期滞在、月単位の滞在、引越し準備、出張に適した東京のレジデンス。",
+    lead: "短期滞在、月単位滞在、引越し準備、出張に適した東京のレジデンス。",
     area: "エリア",
     checkIn: "チェックイン",
     checkOut: "チェックアウト",
     guests: "人数",
     search: "検索",
-    featured: "Featured Residences",
-    noResults: "条件に一致するレジデンスはまだありません。",
+    featured: "おすすめレジデンス",
+    noResults: "条件に一致する空室のあるレジデンスはまだありません。",
     residences: "棟"
   }
 } as const;
 
 const areaOptions = [
-  { value: "all", label: { en: "All areas", zh: "全部区域", ja: "すべて" }, keywords: [] },
-  { value: "shinjuku", label: { en: "Shinjuku", zh: "新宿", ja: "新宿" }, keywords: ["shinjuku", "jingumae", "新宿"] },
+  { value: "all", label: { en: "All areas", zh: "全部区域", ja: "すべてのエリア" }, keywords: [] },
+  { value: "shinjuku", label: { en: "Shinjuku", zh: "新宿", ja: "新宿" }, keywords: ["shinjuku", "jingumae", "新宿", "神宫", "神宮"] },
   { value: "shibuya", label: { en: "Shibuya", zh: "涩谷", ja: "渋谷" }, keywords: ["shibuya", "涩谷", "渋谷"] },
   { value: "taito", label: { en: "Taito", zh: "台东", ja: "台東" }, keywords: ["taito", "台东", "台東"] },
   { value: "bunkyo", label: { en: "Bunkyo", zh: "文京", ja: "文京" }, keywords: ["bunkyo", "文京"] }
@@ -71,6 +71,23 @@ function areaMatches(building: Building, selectedArea: string) {
   return option.keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
 }
 
+function rangesOverlap(range: DateRange, checkIn: string, checkOut: string) {
+  if (!checkIn && !checkOut) return false;
+  if (checkIn && !checkOut) return checkIn >= range.start && checkIn <= range.end;
+  if (!checkIn && checkOut) return checkOut >= range.start && checkOut <= range.end;
+
+  const start = checkIn <= checkOut ? checkIn : checkOut;
+  const end = checkIn <= checkOut ? checkOut : checkIn;
+  return start <= range.end && end > range.start;
+}
+
+function roomMatches(roomType: RoomType, guests: string, checkIn: string, checkOut: string) {
+  const guestNumber = Number(guests || 1);
+  if (roomType.status !== "published") return false;
+  if (capacityMax(roomType.capacity) < guestNumber) return false;
+  return !roomType.unavailableDates.some((range) => rangesOverlap(range, checkIn, checkOut));
+}
+
 export function BuildingExplorer({ buildings, locale }: { buildings: Building[]; locale: Locale }) {
   const t = copy[locale];
   const [area, setArea] = useState("all");
@@ -78,12 +95,11 @@ export function BuildingExplorer({ buildings, locale }: { buildings: Building[];
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const featured = useMemo(() => {
-    const guestNumber = Number(guests || 1);
     return buildings
       .filter((building) => areaMatches(building, area))
-      .filter((building) => building.roomTypes.some((roomType) => roomType.status === "published" && capacityMax(roomType.capacity) >= guestNumber))
+      .filter((building) => building.roomTypes.some((roomType) => roomMatches(roomType, guests, checkIn, checkOut)))
       .slice(0, 6);
-  }, [area, guests, buildings]);
+  }, [area, guests, checkIn, checkOut, buildings]);
 
   return (
     <>
@@ -140,16 +156,16 @@ export function BuildingExplorer({ buildings, locale }: { buildings: Building[];
                   </select>
                 </label>
 
-                <button className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E61E5D] px-5 py-4 text-base font-semibold text-white shadow-card transition hover:bg-[#d81352]">
+                <a href="#featured-residences" className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E61E5D] px-5 py-4 text-base font-semibold text-white shadow-card transition hover:bg-[#d81352]">
                   <Search size={18} /> {t.search}
-                </button>
+                </a>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-14 pt-2">
+      <section id="featured-residences" className="mx-auto max-w-7xl px-5 pb-14 pt-2">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-brand">Collection</p>

@@ -1,17 +1,18 @@
 import COS from "cos-nodejs-sdk-v5";
 import { NextRequest, NextResponse } from "next/server";
-import type { Building, Locale, MediaImage, RoomType } from "@/types/property";
+import type { Building, Locale, RoomType } from "@/types/property";
 
 export const runtime = "nodejs";
 
 const deployPrefix = "deploy";
 const siteUrl = "https://tokyostay.asia";
+const heroImageUrl = "https://tokyostay-cms-gshaiql6.edgeone.cool/images/tokyo-hero.png";
 const langs: Locale[] = ["en", "zh", "ja"];
 
 const labels = {
   en: {
-    listTitle: "TokyoStay Residences",
-    listLead: "Curated Tokyo residences with multiple room types for monthly stays, relocation, and business travel.",
+    listTitle: "Find your Tokyo stay",
+    listLead: "Curated residences for monthly stays, relocation, and business travel across Tokyo.",
     featured: "Featured Residences",
     viewTypes: "View Room Types",
     roomTypes: "Room Types",
@@ -22,12 +23,18 @@ const labels = {
     amenities: "Amenities",
     unavailable: "Unavailable dates",
     video: "Room Tour",
-    map: "Map"
+    map: "Map",
+    area: "Area",
+    allAreas: "All areas",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    guests: "Guests",
+    search: "Search"
   },
   zh: {
-    listTitle: "TokyoStay 楼盘展示",
-    listLead: "适合东京短住、月租、搬家过渡与商务差旅的精选楼盘和户型。",
-    featured: "Featured Residences",
+    listTitle: "寻找你的东京住宿",
+    listLead: "适合东京短住、月租、搬家过渡与商务差旅的精选房源。",
+    featured: "精选楼盘",
     viewTypes: "查看房型",
     roomTypes: "房型",
     viewDetails: "查看详情",
@@ -37,27 +44,47 @@ const labels = {
     amenities: "设施",
     unavailable: "不可入住日期",
     video: "视频",
-    map: "地图"
+    map: "地图",
+    area: "区域",
+    allAreas: "全部区域",
+    checkIn: "入住日期",
+    checkOut: "退房日期",
+    guests: "入住人数",
+    search: "搜索"
   },
   ja: {
-    listTitle: "TokyoStay レジデンス",
-    listLead: "短期滞在、月単位の滞在、引越し準備、出張に適した東京のレジデンスとタイプ。",
-    featured: "Featured Residences",
+    listTitle: "東京の滞在先を探す",
+    listLead: "短期滞在、月単位滞在、引越し準備、出張に適した東京のレジデンス。",
+    featured: "おすすめレジデンス",
     viewTypes: "タイプを見る",
     roomTypes: "タイプ",
     viewDetails: "詳細を見る",
     backResidences: "一覧へ戻る",
     backTypes: "タイプ一覧へ戻る",
-    overview: "タイプ紹介",
+    overview: "概要",
     amenities: "設備",
     unavailable: "利用不可日",
     video: "動画",
-    map: "地図"
+    map: "地図",
+    area: "エリア",
+    allAreas: "すべてのエリア",
+    checkIn: "チェックイン",
+    checkOut: "チェックアウト",
+    guests: "人数",
+    search: "検索"
   }
 } as const;
 
+const areaOptions = [
+  { value: "all", labels: { en: "All areas", zh: "全部区域", ja: "すべてのエリア" } },
+  { value: "shinjuku", labels: { en: "Shinjuku", zh: "新宿", ja: "新宿" } },
+  { value: "shibuya", labels: { en: "Shibuya", zh: "涩谷", ja: "渋谷" } },
+  { value: "taito", labels: { en: "Taito", zh: "台东", ja: "台東" } },
+  { value: "bunkyo", labels: { en: "Bunkyo", zh: "文京", ja: "文京" } }
+];
+
 const css = `
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Noto Sans JP",Arial,sans-serif;background:#f6f4ef;color:#171412;-webkit-text-size-adjust:100%}a{text-decoration:none;color:inherit}.top{position:sticky;top:0;z-index:20;background:rgba(246,244,239,.9);backdrop-filter:blur(18px);border-bottom:1px solid #e7e1d7}.nav{max-width:1180px;margin:auto;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px}.brand{font-weight:900}.langs{display:flex;gap:8px;flex-wrap:wrap}.langs button{border:1px solid #e7e1d7;background:white;border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer}.langs button.active{background:#171412;color:white}.wrap{max-width:1180px;margin:auto;padding:34px 20px}.hero{display:grid;grid-template-columns:1fr .72fr;gap:28px;align-items:stretch;margin-bottom:30px}.hero-copy{min-height:360px;display:flex;flex-direction:column;justify-content:center}.eyebrow{display:inline-flex;width:max-content;border:1px solid #e7e1d7;background:white;border-radius:999px;padding:9px 13px;color:#b8462f;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;margin:24px 0 10px;letter-spacing:0}.hero p{font-size:17px;line-height:1.8;color:#5c6470;max-width:680px}.hero-img{min-height:360px;border-radius:34px;overflow:hidden;box-shadow:0 20px 60px rgba(23,20,18,.1)}.hero-img img{width:100%;height:100%;object-fit:cover;display:block}.section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:20px 0}.section-title h2{font-size:34px;margin:0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}.card{overflow:hidden;background:white;border:1px solid #e7e1d7;border-radius:28px;box-shadow:0 10px 30px rgba(32,39,51,.08);transition:.25s}.card:hover{transform:translateY(-4px);box-shadow:0 20px 60px rgba(23,20,18,.1)}.cover{height:280px;background:#e7e1d7;position:relative}.cover img{width:100%;height:100%;object-fit:cover;display:block}.body{padding:22px}.body h2{margin:8px 0 10px;font-size:24px;line-height:1.18;letter-spacing:0}.muted{color:#68717c;line-height:1.7}.meta{display:grid;gap:5px;color:#68717c;font-size:14px}.tags{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.tag{background:#f6f4ef;border:1px solid #e7e1d7;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800;color:#5d665e;white-space:nowrap}.btn{display:inline-flex;margin-top:4px;background:#171412;color:white;border-radius:999px;padding:12px 16px;font-weight:900}.gallery{background:white;border:1px solid #e7e1d7;border-radius:30px;padding:14px;box-shadow:0 12px 35px rgba(23,20,18,.08)}.mainimg{width:100%;height:min(62vw,640px);object-fit:cover;border-radius:24px}.thumbs{display:flex;gap:10px;overflow:auto;margin-top:12px;padding-bottom:4px}.thumbs img{width:120px;height:82px;object-fit:cover;border-radius:14px;flex:0 0 auto}.room-list{display:grid;gap:20px}.room-card{display:grid;grid-template-columns:260px 1fr;gap:20px;background:white;border:1px solid #e7e1d7;border-radius:28px;padding:14px;box-shadow:0 10px 30px rgba(32,39,51,.08)}.room-card img{width:100%;height:210px;object-fit:cover;border-radius:20px}.detail{display:grid;grid-template-columns:1fr 380px;gap:24px;margin-top:24px}.panel{background:white;border:1px solid #e7e1d7;border-radius:28px;padding:24px;box-shadow:0 8px 26px rgba(23,20,18,.06)}.facts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.fact{background:#f6f4ef;border:1px solid #e7e1d7;border-radius:18px;padding:14px;font-weight:800;color:#4f5965}.calendar{display:grid;gap:8px}.blocked{background:#fee2e2;color:#991b1b;border-radius:14px;padding:11px 12px;font-weight:800}.media{width:100%;border:0;border-radius:18px;background:#eee;min-height:320px}.video{width:100%;max-height:520px;border-radius:18px;background:#000}.back{display:inline-flex;margin-bottom:20px;color:#5c6470;font-weight:900}@media(max-width:980px){.hero,.grid,.detail,.room-card{grid-template-columns:1fr}.hero-copy{min-height:auto}.hero-img{min-height:300px}.room-card img{height:260px}}@media(max-width:640px){.top{position:relative}.nav{align-items:flex-start;flex-direction:column}.langs{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.langs button{font-size:12px;padding:9px 8px}.wrap{padding:24px 16px}.hero h1{font-size:38px}.hero p{font-size:15px}.hero-img{min-height:260px;border-radius:26px}.section-title h2{font-size:28px}.cover{height:250px}.body h2{font-size:25px}.mainimg{height:320px}.panel{padding:20px}.media{min-height:250px}}`;
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","Noto Sans JP",Arial,sans-serif;background:#f6f4ef;color:#171412;-webkit-text-size-adjust:100%}a{text-decoration:none;color:inherit}.top{position:sticky;top:0;z-index:20;background:rgba(246,244,239,.9);backdrop-filter:blur(18px);border-bottom:1px solid #e7e1d7}.nav{max-width:1180px;margin:auto;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px}.brand{font-weight:900}.langs{display:flex;gap:8px;flex-wrap:wrap}.langs button{border:1px solid #e7e1d7;background:white;border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer}.langs button.active{background:#171412;color:white}.wrap{max-width:1180px;margin:auto;padding:34px 20px}.search-hero{position:relative;min-height:560px;margin:0 auto 34px;border-radius:34px;overflow:hidden;background:#171412;box-shadow:0 22px 64px rgba(23,20,18,.12)}.search-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.search-card{position:relative;z-index:1;width:min(520px,calc(100% - 40px));margin:48px 0 48px 48px;border-radius:28px;background:rgba(255,255,255,.96);padding:34px;box-shadow:0 20px 60px rgba(23,20,18,.16);border:1px solid rgba(0,0,0,.06)}.search-card h1{font-size:clamp(40px,5vw,64px);line-height:1.02;margin:18px 0 14px;letter-spacing:0}.search-card p{font-size:16px;line-height:1.75;color:#5c6470}.eyebrow{display:inline-flex;width:max-content;border:1px solid #e7e1d7;background:white;border-radius:999px;padding:9px 13px;color:#b8462f;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.search-form{display:grid;gap:12px;margin-top:24px}.field{display:block;border:1px solid #e7e1d7;background:white;border-radius:18px;padding:13px 16px}.field span{display:block;color:#171412;font-size:12px;font-weight:900}.field input,.field select{margin-top:7px;width:100%;border:0;background:transparent;outline:0;font-size:17px;color:#171412}.date-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e7e1d7;border-radius:18px;overflow:hidden;background:white}.date-row .field{border:0;border-radius:0}.date-row .field:first-child{border-right:1px solid #e7e1d7}.search-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:18px;background:#e61e5d;color:white;padding:16px 18px;font-size:16px;font-weight:900;cursor:pointer}.hero{display:grid;grid-template-columns:1fr .72fr;gap:28px;align-items:stretch;margin-bottom:30px}.hero-copy{min-height:360px;display:flex;flex-direction:column;justify-content:center}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;margin:24px 0 10px;letter-spacing:0}.hero p{font-size:17px;line-height:1.8;color:#5c6470;max-width:680px}.hero-img{min-height:360px;border-radius:34px;overflow:hidden;box-shadow:0 20px 60px rgba(23,20,18,.1)}.hero-img img{width:100%;height:100%;object-fit:cover;display:block}.section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:20px 0}.section-title h2{font-size:34px;margin:0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}.card{overflow:hidden;background:white;border:1px solid #e7e1d7;border-radius:28px;box-shadow:0 10px 30px rgba(32,39,51,.08);transition:.25s}.card:hover{transform:translateY(-4px);box-shadow:0 20px 60px rgba(23,20,18,.1)}.cover{height:280px;background:#e7e1d7;position:relative}.cover img{width:100%;height:100%;object-fit:cover;display:block}.body{padding:22px}.body h2{margin:8px 0 10px;font-size:24px;line-height:1.18;letter-spacing:0}.muted{color:#68717c;line-height:1.7}.meta{display:grid;gap:5px;color:#68717c;font-size:14px}.tags{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.tag{background:#f6f4ef;border:1px solid #e7e1d7;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800;color:#5d665e;white-space:nowrap}.btn{display:inline-flex;margin-top:4px;background:#171412;color:white;border-radius:999px;padding:12px 16px;font-weight:900}.gallery{background:white;border:1px solid #e7e1d7;border-radius:30px;padding:14px;box-shadow:0 12px 35px rgba(23,20,18,.08)}.mainimg{width:100%;height:min(62vw,640px);object-fit:cover;border-radius:24px}.thumbs{display:flex;gap:10px;overflow:auto;margin-top:12px;padding-bottom:4px}.thumbs img{width:120px;height:82px;object-fit:cover;border-radius:14px;flex:0 0 auto}.room-list{display:grid;gap:20px}.room-card{display:grid;grid-template-columns:260px 1fr;gap:20px;background:white;border:1px solid #e7e1d7;border-radius:28px;padding:14px;box-shadow:0 10px 30px rgba(32,39,51,.08)}.room-card img{width:100%;height:210px;object-fit:cover;border-radius:20px}.detail{display:grid;grid-template-columns:1fr 380px;gap:24px;margin-top:24px}.panel{background:white;border:1px solid #e7e1d7;border-radius:28px;padding:24px;box-shadow:0 8px 26px rgba(23,20,18,.06)}.facts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.fact{background:#f6f4ef;border:1px solid #e7e1d7;border-radius:18px;padding:14px;font-weight:800;color:#4f5965}.calendar{display:grid;gap:8px}.blocked{background:#fee2e2;color:#991b1b;border-radius:14px;padding:11px 12px;font-weight:800}.media{width:100%;border:0;border-radius:18px;background:#eee;min-height:320px}.video{width:100%;max-height:520px;border-radius:18px;background:#000}.back{display:inline-flex;margin-bottom:20px;color:#5c6470;font-weight:900}@media(max-width:980px){.hero,.grid,.detail,.room-card{grid-template-columns:1fr}.search-card{margin:32px auto}.hero-copy{min-height:auto}.hero-img{min-height:300px}.room-card img{height:260px}}@media(max-width:640px){.top{position:relative}.nav{align-items:flex-start;flex-direction:column}.langs{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.langs button{font-size:12px;padding:9px 8px}.wrap{padding:24px 16px}.search-hero{min-height:auto;border-radius:26px}.search-hero img{position:absolute}.search-card{width:calc(100% - 24px);margin:220px auto 12px;padding:24px;border-radius:24px}.search-card h1{font-size:36px}.date-row{grid-template-columns:1fr}.date-row .field:first-child{border-right:0;border-bottom:1px solid #e7e1d7}.hero h1{font-size:38px}.hero p{font-size:15px}.hero-img{min-height:260px;border-radius:26px}.section-title h2{font-size:28px}.cover{height:250px}.body h2{font-size:25px}.mainimg{height:320px}.panel{padding:20px}.media{min-height:250px}}`;
 
 function esc(value = "") {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] || char));
@@ -79,6 +106,58 @@ function languageScript() {
   return `<script>function setLang(lang){document.documentElement.lang=lang;document.querySelectorAll('[data-lang]').forEach(el=>{el.style.display=el.dataset.lang===lang?'':'none'});document.querySelectorAll('[data-lang-btn]').forEach(el=>el.classList.toggle('active',el.dataset.langBtn===lang));document.querySelectorAll('a[data-href-base]').forEach(a=>{a.href=a.dataset.hrefBase+(a.dataset.hrefBase.includes('?')?'&':'?')+'lang='+lang});localStorage.setItem('tokyostayLang',lang)}setLang(new URLSearchParams(location.search).get('lang')||localStorage.getItem('tokyostayLang')||'en');</script>`;
 }
 
+function searchFilterScript() {
+  return `<script>
+function tokyoStayRangesOverlap(range, checkIn, checkOut){
+  if(!checkIn && !checkOut) return false;
+  if(checkIn && !checkOut) return checkIn >= range.start && checkIn <= range.end;
+  if(!checkIn && checkOut) return checkOut >= range.start && checkOut <= range.end;
+  var start = checkIn <= checkOut ? checkIn : checkOut;
+  var end = checkIn <= checkOut ? checkOut : checkIn;
+  return start <= range.end && end > range.start;
+}
+function tokyoStayRoomAvailable(room, guests, checkIn, checkOut){
+  if(Number(room.capacity || 0) < Number(guests || 1)) return false;
+  return !(room.unavailableDates || []).some(function(range){ return tokyoStayRangesOverlap(range, checkIn, checkOut); });
+}
+function filterResidences(form){
+  var lang = document.documentElement.lang || 'en';
+  var activeForm = form || document.querySelector('[data-lang="' + lang + '"] .search-form') || document.querySelector('.search-form');
+  if(!activeForm) return;
+  var area = activeForm.querySelector('[name="area"]')?.value || 'all';
+  var guests = activeForm.querySelector('[name="guests"]')?.value || '1';
+  var checkIn = activeForm.querySelector('[name="checkIn"]')?.value || '';
+  var checkOut = activeForm.querySelector('[name="checkOut"]')?.value || '';
+  var visibleCount = 0;
+  document.querySelectorAll('[data-residence-card]').forEach(function(card){
+    var areaMatch = area === 'all' || (card.dataset.keywords || '').toLowerCase().indexOf(area.toLowerCase()) >= 0;
+    var rooms = [];
+    try { rooms = JSON.parse(card.dataset.rooms || '[]'); } catch(e) {}
+    var roomMatch = rooms.some(function(room){ return tokyoStayRoomAvailable(room, guests, checkIn, checkOut); });
+    var show = areaMatch && roomMatch;
+    card.style.display = show ? '' : 'none';
+    if(show) visibleCount += 1;
+  });
+  document.querySelectorAll('[data-result-count]').forEach(function(node){ node.textContent = visibleCount + ' residences'; });
+  var empty = document.querySelector('[data-empty-results]');
+  if(empty) empty.style.display = visibleCount ? 'none' : '';
+}
+document.addEventListener('input', function(event){
+  var form = event.target.closest && event.target.closest('.search-form');
+  if(form) filterResidences(form);
+});
+document.addEventListener('change', function(event){
+  var form = event.target.closest && event.target.closest('.search-form');
+  if(form) filterResidences(form);
+});
+document.addEventListener('submit', function(event){
+  var form = event.target.closest && event.target.closest('.search-form');
+  if(form){ event.preventDefault(); filterResidences(form); document.getElementById('featured')?.scrollIntoView({behavior:'smooth'}); }
+});
+filterResidences();
+</script>`;
+}
+
 function cover(building: Building) {
   return building.coverImage || building.gallery[0]?.url || building.roomTypes[0]?.images[0]?.url || "";
 }
@@ -93,13 +172,32 @@ function station(building: Building, lang: Locale) {
   return `${building.station} · ${building.walkMinutes} min walk`;
 }
 
+function searchHeroHtml() {
+  const areaSelects = langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">TokyoStay</span><h1>${esc(labels[lang].listTitle)}</h1><p>${esc(labels[lang].listLead)}</p><form class="search-form" action="#featured"><label class="field"><span>${esc(labels[lang].area)}</span><select name="area">${areaOptions.map((area) => `<option value="${esc(area.value)}">${esc(area.labels[lang])}</option>`).join("")}</select></label><div class="date-row"><label class="field"><span>${esc(labels[lang].checkIn)}</span><input type="date" name="checkIn"></label><label class="field"><span>${esc(labels[lang].checkOut)}</span><input type="date" name="checkOut"></label></div><label class="field"><span>${esc(labels[lang].guests)}</span><select name="guests">${[1, 2, 3, 4, 5, 6].map((guest) => `<option value="${guest}">${guest}</option>`).join("")}</select></label><button class="search-btn" type="submit">⌕ ${esc(labels[lang].search)}</button></form></div>`).join("");
+  return `<section class="search-hero"><img src="${heroImageUrl}" alt="Tokyo"><div class="search-card">${areaSelects}</div></section>`;
+}
+
 function listHtml(buildings: Building[]) {
   const cards = buildings.filter((building) => building.featured).sort((a, b) => a.order - b.order).map((building) => {
     const rooms = building.roomTypes.map((room) => room.roomType).join(" / ");
-    return `<article class="card"><a data-href-base="../building/${esc(building.id)}/index.html" href="../building/${esc(building.id)}/index.html"><div class="cover"><img src="${esc(cover(building))}" alt="${esc(txt(building.name, "en"))}"></div><div class="body">${langs.map((lang) => `<div data-lang="${lang}"><p class="eyebrow">${esc(building.area)}</p><h2>${esc(txt(building.name, lang))}</h2><div class="meta"><span>${esc(station(building, lang))}</span><span>${building.roomTypes.length} types · ${esc(rooms)}</span></div><div class="tags">${building.tags.slice(0, 5).map((tag) => `<span class="tag">${esc(tag)}</span>`).join("")}</div><span class="btn">${esc(labels[lang].viewTypes)}</span></div>`).join("")}</div></a></article>`;
+    const roomSearchData = building.roomTypes
+      .filter((room) => room.status === "published")
+      .map((room) => ({
+        capacity: Math.max(...(room.capacity.match(/\d+/g) || ["0"]).map(Number)),
+        unavailableDates: room.unavailableDates
+      }));
+    const keywords = [
+      building.area,
+      building.station,
+      txt(building.name, "en"),
+      txt(building.name, "zh"),
+      txt(building.name, "ja"),
+      ...building.tags
+    ].join(" ").toLowerCase();
+    return `<article class="card" data-residence-card data-keywords="${esc(keywords)}" data-rooms="${esc(JSON.stringify(roomSearchData))}"><a data-href-base="../building/${esc(building.id)}/index.html" href="../building/${esc(building.id)}/index.html"><div class="cover"><img src="${esc(cover(building))}" alt="${esc(txt(building.name, "en"))}"></div><div class="body">${langs.map((lang) => `<div data-lang="${lang}"><p class="eyebrow">${esc(building.area)}</p><h2>${esc(txt(building.name, lang))}</h2><div class="meta"><span>${esc(station(building, lang))}</span><span>${building.roomTypes.length} ${esc(labels[lang].roomTypes)} · ${esc(rooms)}</span></div><div class="tags">${building.tags.slice(0, 5).map((tag) => `<span class="tag">${esc(tag)}</span>`).join("")}</div><span class="btn">${esc(labels[lang].viewTypes)}</span></div>`).join("")}</div></a></article>`;
   }).join("");
 
-  return shell("TokyoStay Residences", `${nav("../")}<main class="wrap"><section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">TokyoStay</span><h1>${esc(labels[lang].listTitle)}</h1><p>${esc(labels[lang].listLead)}</p></div>`).join("")}</div><div class="hero-img"><img src="/images/tokyo-hero.png" alt="Tokyo"></div></section><div class="section-title"><h2>Featured Residences</h2><span class="tag">${buildings.length} residences</span></div><section class="grid">${cards}</section></main>${languageScript()}`);
+  return shell("TokyoStay Residences", `${nav("../")}<main class="wrap">${searchHeroHtml()}<div id="featured" class="section-title">${langs.map((lang) => `<h2 data-lang="${lang}">${esc(labels[lang].featured)}</h2>`).join("")}<span class="tag" data-result-count>${buildings.length} residences</span></div><section class="grid">${cards}</section><div class="panel" data-empty-results style="display:none;margin-top:22px;text-align:center">No available residences match these filters.</div></main>${searchFilterScript()}${languageScript()}`);
 }
 
 function buildingHtml(building: Building) {

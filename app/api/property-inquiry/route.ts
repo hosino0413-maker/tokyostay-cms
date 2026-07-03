@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const recipient = "tokyostay365@gmail.com";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://tokyostay.asia",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
 
 function required(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
@@ -21,7 +26,7 @@ export async function POST(request: NextRequest) {
   } = body as Record<string, string>;
 
   if (!required(customerEmail) || !required(message) || !required(propertyName) || !required(propertyId)) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400, headers: corsHeaders });
   }
 
   const host = process.env.SMTP_HOST;
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
   const from = process.env.SMTP_FROM || user;
 
   if (!host || !user || !pass || !from) {
-    return NextResponse.json({ error: "SMTP is not configured" }, { status: 500 });
+    return NextResponse.json({ error: "SMTP is not configured" }, { status: 500, headers: corsHeaders });
   }
 
   const submittedAt = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
@@ -63,5 +68,9 @@ export async function POST(request: NextRequest) {
     ].join("\n")
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: corsHeaders });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
 }

@@ -257,9 +257,53 @@ function setupSectionNav(){
   }, { rootMargin: '-145px 0px -52% 0px', threshold: [0.1,0.24,0.4,0.6] });
   sections.forEach(function(section){ observer.observe(section); });
 }
+function setupInquiry(){
+  var modal = document.querySelector('[data-inquiry-modal]');
+  if(!modal) return;
+  var form = modal.querySelector('[data-inquiry-form]');
+  var success = modal.querySelector('[data-inquiry-success]');
+  var error = modal.querySelector('[data-inquiry-error]');
+  var send = modal.querySelector('[data-inquiry-send]');
+  function open(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); if(error) error.style.display='none'; if(success) success.style.display='none'; if(form) form.style.display='grid'; }
+  function close(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
+  document.querySelectorAll('[data-inquiry-open]').forEach(function(button){ button.addEventListener('click', open); });
+  modal.querySelectorAll('[data-inquiry-close]').forEach(function(button){ button.addEventListener('click', close); });
+  modal.addEventListener('click', function(event){ if(event.target === modal) close(); });
+  document.addEventListener('keydown', function(event){ if(event.key === 'Escape') close(); });
+  form?.addEventListener('submit', async function(event){
+    event.preventDefault();
+    if(error) error.style.display='none';
+    if(send){ send.disabled = true; send.textContent = send.dataset.sending || send.textContent; }
+    var currentLang = document.documentElement.lang || 'en';
+    var data = new FormData(form);
+    try {
+      var response = await fetch('https://tokyostay-cms-gshaiql6.edgeone.cool/api/property-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: data.get('customerEmail') || '',
+          channel: data.get('channel') || '',
+          message: data.get('message') || '',
+          propertyName: modal.dataset.propertyName || '',
+          propertyId: modal.dataset.propertyId || '',
+          propertyUrl: location.href
+        })
+      });
+      if(!response.ok) throw new Error('Failed');
+      if(form) form.style.display='none';
+      if(success) success.style.display='block';
+    } catch(e) {
+      if(error) error.style.display='block';
+    } finally {
+      if(send){ send.disabled = false; send.textContent = send.dataset.label || send.textContent; }
+      setLang(currentLang);
+    }
+  });
+}
 setupRoomGallery();
 setupCalendars();
 setupSectionNav();
+setupInquiry();
 </script>`;
 }
 
@@ -331,6 +375,15 @@ function galleryHtml(images: { url: string; alt: string; id?: string }[], title:
   return `<section id="gallery" class="gallery" data-room-gallery data-images="${esc(JSON.stringify(safeImages))}"><div class="gallery-stage"><img class="mainimg" data-gallery-main src="${esc(main.url)}" alt="${esc(main.alt)}"><span class="gallery-count" data-gallery-count>1 / ${safeImages.length}</span>${safeImages.length > 1 ? `<button class="gallery-arrow prev" type="button" data-gallery-prev aria-label="Previous image">‹</button><button class="gallery-arrow next" type="button" data-gallery-next aria-label="Next image">›</button>` : ""}</div>${safeImages.length > 1 ? `<div class="thumbs">${thumbs}</div>` : ""}</section>`;
 }
 
+function inquiryHtml(building: Building, room: RoomType) {
+  const propertyName = `${txt(building.name, "zh") || txt(building.name, "en")} / ${txt(room.name, "zh") || txt(room.name, "en")}`;
+  const modalStyle = "display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(23,20,18,.45);padding:24px;backdrop-filter:blur(8px)";
+  const cardStyle = "position:relative;width:min(95vw,540px);border-radius:24px;background:white;padding:30px;box-shadow:0 30px 90px rgba(23,20,18,.22)";
+  const fieldStyle = "width:100%;border:1px solid #e7e1d7;border-radius:18px;background:#f6f4ef;padding:13px 15px;font:inherit;outline:0;margin-top:8px";
+  const labelStyle = "display:block;color:#4f5965;font-size:14px;font-weight:900";
+  return `<button type="button" class="btn" style="width:max-content;margin-top:22px;border:0;cursor:pointer" data-inquiry-open><span data-lang="en">Inquire</span><span data-lang="zh">&#21672;&#35810;&#25151;&#28304;</span><span data-lang="ja">&#21839;&#12356;&#21512;&#12431;&#12379;</span></button><div data-inquiry-modal aria-hidden="true" data-property-id="${esc(`${building.id}/${room.id}`)}" data-property-name="${esc(propertyName)}" style="${modalStyle}"><div style="${cardStyle}"><button type="button" data-inquiry-close style="position:absolute;right:18px;top:18px;width:34px;height:34px;border:0;border-radius:999px;background:#f6f4ef;font-size:22px;cursor:pointer">x</button><div data-inquiry-success style="display:none;text-align:center"><h2><span data-lang="en">We received your inquiry</span><span data-lang="zh">&#24050;&#25910;&#21040;&#24744;&#30340;&#21672;&#35810;</span><span data-lang="ja">&#12362;&#21839;&#12356;&#21512;&#12431;&#12379;&#12434;&#21463;&#12369;&#20184;&#12369;&#12414;&#12375;&#12383;</span></h2><p class="muted"><span data-lang="en">Thank you for your inquiry. We usually reply within 24 hours. Please check your email.</span><span data-lang="zh">&#24863;&#35874;&#24744;&#30340;&#21672;&#35810;&#12290;&#25105;&#20204;&#36890;&#24120;&#20250;&#22312;24&#23567;&#26102;&#20869;&#22238;&#22797;&#24744;&#30340;&#37038;&#20214;&#65292;&#35831;&#27880;&#24847;&#26597;&#25910;&#37038;&#31665;&#12290;</span><span data-lang="ja">&#12362;&#21839;&#12356;&#21512;&#12431;&#12379;&#12354;&#12426;&#12364;&#12392;&#12358;&#12372;&#12374;&#12356;&#12414;&#12377;&#12290;&#36890;&#24120;24&#26178;&#38291;&#20197;&#20869;&#12395;&#36820;&#20449;&#12375;&#12414;&#12377;&#12290;</span></p><button type="button" class="btn" data-inquiry-close><span data-lang="en">Close</span><span data-lang="zh">&#20851;&#38381;</span><span data-lang="ja">&#38281;&#12376;&#12427;</span></button></div><form data-inquiry-form style="display:grid;gap:15px"><h2 style="margin:0 34px 4px 0"><span data-lang="en">Inquire about this stay</span><span data-lang="zh">&#21672;&#35810;&#25151;&#28304;</span><span data-lang="ja">&#29289;&#20214;&#12395;&#12388;&#12356;&#12390;&#21839;&#12356;&#21512;&#12431;&#12379;&#12427;</span></h2><p class="muted"><span data-lang="en">Want to know the price, available dates, or booking process? Leave your email and we will reply soon.</span><span data-lang="zh">&#24819;&#20102;&#35299;&#20215;&#26684;&#12289;&#21487;&#20837;&#20303;&#26085;&#26399;&#25110;&#39044;&#35746;&#26041;&#24335;&#65311;&#35831;&#30041;&#19979;&#24744;&#30340;&#37038;&#31665;&#65292;&#25105;&#20204;&#20250;&#23613;&#24555;&#22238;&#22797;&#12290;</span><span data-lang="ja">&#26009;&#37329;&#12289;&#31354;&#23460;&#26085;&#12289;&#20104;&#32004;&#26041;&#27861;&#12395;&#12388;&#12356;&#12390;&#30693;&#12426;&#12383;&#12356;&#22580;&#21512;&#12399;&#12289;&#12513;&#12540;&#12523;&#12450;&#12489;&#12524;&#12473;&#12434;&#27531;&#12375;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290;</span></p><label style="${labelStyle}"><span data-lang="en">Email address</span><span data-lang="zh">&#37038;&#31665;&#22320;&#22336;</span><span data-lang="ja">&#12513;&#12540;&#12523;&#12450;&#12489;&#12524;&#12473;</span><input style="${fieldStyle}" name="customerEmail" type="email" required placeholder="Enter your email"></label><label style="${labelStyle}"><span data-lang="en">Who recommended us to you? (optional)</span><span data-lang="zh">&#26159;&#35841;&#21521;&#24744;&#25512;&#33616;&#20102;&#25105;&#20204;&#65311;&#65288;&#36873;&#22635;&#65289;</span><span data-lang="ja">&#12393;&#12394;&#12383;&#12363;&#12425;&#12398;&#32057;&#20171;&#12391;&#12377;&#12363;&#65311;&#65288;&#20219;&#24847;&#65289;</span><input style="${fieldStyle}" name="channel" placeholder="Referrer / agency / partner / platform"></label><label style="${labelStyle}"><span data-lang="en">Inquiry details</span><span data-lang="zh">&#21672;&#35810;&#20869;&#23481;</span><span data-lang="ja">&#21839;&#12356;&#21512;&#12431;&#12379;&#20869;&#23481;</span><textarea style="${fieldStyle};min-height:126px;resize:vertical" name="message" required placeholder="Enter your question..."></textarea></label><p data-inquiry-error style="display:none;color:#b91c1c;font-weight:900"><span data-lang="en">Failed to send. Please try again later.</span><span data-lang="zh">&#21457;&#36865;&#22833;&#36133;&#65292;&#35831;&#31245;&#21518;&#37325;&#35797;&#12290;</span><span data-lang="ja">&#36865;&#20449;&#12395;&#22833;&#25943;&#12375;&#12414;&#12375;&#12383;&#12290;&#12375;&#12400;&#12425;&#12367;&#12375;&#12390;&#12363;&#12425;&#12418;&#12358;&#19968;&#24230;&#12362;&#35430;&#12375;&#12367;&#12384;&#12373;&#12356;&#12290;</span></p><div style="display:flex;gap:12px"><button type="button" data-inquiry-close style="flex:1;border:1px solid #e7e1d7;border-radius:999px;background:white;padding:13px 16px;color:#4f5965;font-weight:900;cursor:pointer"><span data-lang="en">Cancel</span><span data-lang="zh">&#21462;&#28040;</span><span data-lang="ja">&#12461;&#12515;&#12531;&#12475;&#12523;</span></button><button type="submit" class="btn" data-inquiry-send data-label="Send inquiry" data-sending="Sending..." style="flex:1;border:0;cursor:pointer"><span data-lang="en">Send inquiry</span><span data-lang="zh">&#21457;&#36865;&#21672;&#35810;</span><span data-lang="ja">&#36865;&#20449;</span></button></div></form></div></div>`;
+}
+
 function roomHtml(building: Building, room: RoomType) {
   const imgs = room.images.length ? room.images : building.gallery;
   const main = roomCover(room) || cover(building);
@@ -339,7 +392,7 @@ function roomHtml(building: Building, room: RoomType) {
   const amenities = `${langs.map((lang) => `<h2 data-lang="${lang}">${esc(labels[lang].amenities)}</h2>`).join("")}<div class="tags">${room.amenities.map((item) => `<span class="tag">${esc(item)}</span>`).join("")}</div>`;
   const video = `<h2>${esc(labels.en.video)}</h2>${room.videos[0] ? (room.videos[0].url.includes("youtube") ? `<iframe class="media" src="${esc(room.videos[0].url)}" allowfullscreen></iframe>` : `<video class="video" src="${esc(room.videos[0].url)}" controls></video>`) : `<p class="muted">-</p>`}`;
   const map = `<h2>${esc(labels.en.map)}</h2>${room.map.embedUrl ? (room.map.type === "image" ? `<img class="media" src="${esc(room.map.embedUrl)}" alt="${esc(room.map.address)}">` : `<iframe class="media" src="${esc(room.map.embedUrl)}" loading="lazy"></iframe>`) : `<p class="muted">-</p>`}`;
-  return shell(txt(room.name, "en"), `${nav("../../../../")}<main class="wrap">${langs.map((lang) => `<a class="back" data-lang="${lang}" href="../../../${esc(building.id)}/index.html?lang=${lang}">← ${esc(labels[lang].backTypes)}</a>`).join("")}<section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">${esc(txt(building.name, lang))}</span><h1>${esc(txt(room.name, lang))}</h1><p>${esc(room.roomType)} · ${esc(room.capacity)} · ${esc(room.size)} · ${esc(station(building, lang))}</p></div>`).join("")}</div><div class="hero-img"><img src="${esc(main)}" alt="${esc(txt(room.name, "en"))}"></div></section>${sectionNavHtml("mobile")}<section class="room-layout">${sectionNavHtml("desktop")}<div class="room-content">${galleryHtml(galleryImages, txt(room.name, "en"))}<section id="overview" class="detail"><article class="panel">${details}</article><aside class="panel">${calendarHtml(room)}</aside></section><section id="amenities" class="panel" style="margin-top:24px">${amenities}</section><section id="video" class="panel" style="margin-top:24px">${video}</section><section id="map" class="panel" style="margin-top:24px">${map}</section></div></section></main>${roomDetailScript()}${languageScript()}`);
+  return shell(txt(room.name, "en"), `${nav("../../../../")}<main class="wrap">${langs.map((lang) => `<a class="back" data-lang="${lang}" href="../../../${esc(building.id)}/index.html?lang=${lang}">← ${esc(labels[lang].backTypes)}</a>`).join("")}<section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">${esc(txt(building.name, lang))}</span><h1>${esc(txt(room.name, lang))}</h1><p>${esc(room.roomType)} · ${esc(room.capacity)} · ${esc(room.size)} · ${esc(station(building, lang))}</p></div>`).join("")}${inquiryHtml(building, room)}</div><div class="hero-img"><img src="${esc(main)}" alt="${esc(txt(room.name, "en"))}"></div></section>${sectionNavHtml("mobile")}<section class="room-layout">${sectionNavHtml("desktop")}<div class="room-content">${galleryHtml(galleryImages, txt(room.name, "en"))}<section id="overview" class="detail"><article class="panel">${details}</article><aside class="panel">${calendarHtml(room)}</aside></section><section id="amenities" class="panel" style="margin-top:24px">${amenities}</section><section id="video" class="panel" style="margin-top:24px">${video}</section><section id="map" class="panel" style="margin-top:24px">${map}</section></div></section></main>${roomDetailScript()}${languageScript()}`);
 }
 
 async function uploadText(cos: COS, key: string, content: string) {

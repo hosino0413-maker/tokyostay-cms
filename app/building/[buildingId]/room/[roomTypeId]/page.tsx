@@ -9,6 +9,7 @@ import { PropertySectionNav } from "@/components/PropertySectionNav";
 import { MapPanel, VideoPanel } from "@/components/VideoAndMap";
 import { getBuildings, getRoomType, stationText } from "@/lib/buildings";
 import { text } from "@/lib/properties";
+import { tagLabel } from "@/lib/tags";
 import type { Locale } from "@/types/property";
 
 const copy = {
@@ -103,7 +104,7 @@ export default function RoomTypeDetail({ params, searchParams }: { params: { bui
               <div className="mt-5 flex flex-wrap gap-2.5">
                 {roomType.amenities.map((amenity) => (
                   <span key={amenity} className="max-w-full rounded-full bg-mist px-4 py-2 text-sm font-semibold text-night/65 ring-1 ring-line">
-                    {amenity}
+                    {tagLabel(amenity, locale)}
                   </span>
                 ))}
               </div>

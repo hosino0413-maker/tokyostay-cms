@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, MapPin, TrainFront, Users } from "lucide-react";
 import { coverImage, text } from "@/lib/properties";
+import { tagLabel } from "@/lib/tags";
 import type { Locale, Property } from "@/types/property";
 
 const labels = {
@@ -52,7 +53,7 @@ export function PropertyCard({ property, locale }: { property: Property; locale:
         <div className="flex flex-wrap gap-2">
           {property.amenities.slice(0, 5).map((amenity) => (
             <span key={amenity} className="rounded-full bg-mist px-3 py-1.5 text-xs font-semibold text-night/70 ring-1 ring-line">
-              {amenity}
+              {tagLabel(amenity, locale)}
             </span>
           ))}
         </div>

@@ -8,6 +8,7 @@ import { PropertyInquiryButton } from "@/components/PropertyInquiryButton";
 import { PropertySectionNav } from "@/components/PropertySectionNav";
 import { MapPanel, VideoPanel } from "@/components/VideoAndMap";
 import { getProperty, text } from "@/lib/properties";
+import { tagLabel } from "@/lib/tags";
 import type { Locale } from "@/types/property";
 
 const copy = {
@@ -111,7 +112,7 @@ export default function PropertyDetail({ params, searchParams }: { params: { id:
               <div className="mt-5 flex flex-wrap gap-2.5">
                 {property.amenities.map((amenity) => (
                   <span key={amenity} className="max-w-full rounded-full bg-mist px-4 py-2 text-sm font-semibold text-night/65 ring-1 ring-line">
-                    {amenity}
+                    {tagLabel(amenity, locale)}
                   </span>
                 ))}
               </div>

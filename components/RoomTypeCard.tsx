@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarX, DoorOpen, Ruler, Users } from "lucide-react";
 import { roomTypeCover } from "@/lib/buildings";
 import { text } from "@/lib/properties";
+import { tagLabel } from "@/lib/tags";
 import type { Building, Locale, RoomType } from "@/types/property";
 
 const labels = {
@@ -39,7 +40,7 @@ export function RoomTypeCard({ building, roomType, locale }: { building: Buildin
         <div className="flex flex-wrap gap-2">
           {roomType.tags.slice(0, 5).map((tag) => (
             <span key={tag} className="rounded-full bg-mist px-3 py-1.5 text-xs font-semibold text-night/68 ring-1 ring-line">
-              {tag}
+              {tagLabel(tag, locale)}
             </span>
           ))}
         </div>

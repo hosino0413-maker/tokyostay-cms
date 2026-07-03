@@ -1,6 +1,6 @@
-import { BuildingAdminClient } from "@/components/BuildingAdminClient";
+import { BuildingAdminSaasClient } from "@/components/BuildingAdminSaasClient";
 import { getBuildings } from "@/lib/buildings";
 
 export default function AdminPage() {
-  return <BuildingAdminClient initialBuildings={getBuildings()} />;
+  return <BuildingAdminSaasClient initialBuildings={getBuildings()} />;
 }

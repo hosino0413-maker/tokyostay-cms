@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, Building2, DoorOpen, MapPin, TrainFront } from "lucide-react";
 import { buildingCover, roomTypeSummary, stationText } from "@/lib/buildings";
 import { text } from "@/lib/properties";
+import { tagLabel } from "@/lib/tags";
 import type { Building, Locale } from "@/types/property";
 
 const labels = {
@@ -48,7 +49,7 @@ export function BuildingCard({ building, locale }: { building: Building; locale:
         <div className="flex flex-wrap gap-2">
           {building.tags.slice(0, 5).map((tag) => (
             <span key={tag} className="rounded-full bg-mist px-3 py-1.5 text-xs font-semibold text-night/70 ring-1 ring-line">
-              {tag}
+              {tagLabel(tag, locale)}
             </span>
           ))}
         </div>

@@ -21,7 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { text } from "@/lib/properties";
 import { normalizeTagIds, tagGroups, tagLabel } from "@/lib/tags";
-import type { Building, Locale, MediaImage, RoomType } from "@/types/property";
+import type { Building, Locale, MediaImage, MediaVideo, RoomType } from "@/types/property";
 
 const storageKey = "tokyostay-buildings-v1";
 const localeTabs: { key: Locale; label: string }[] = [
@@ -55,6 +55,73 @@ function readFileAsDataUrl(file: File) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function romanizeStayName(value: string) {
+  const normalized = value
+    .replace(/Ⅲ/g, "III")
+    .replace(/Ⅱ/g, "II")
+    .replace(/Ⅰ/g, "I")
+    .replace(/３/g, "III")
+    .replace(/２/g, "II")
+    .replace(/１/g, "I")
+    .trim();
+
+  const roomMatch = normalized.match(/^([A-Za-z0-9]+)\s*户型$/i);
+  if (roomMatch) {
+    const code = roomMatch[1].toUpperCase();
+    return { zh: normalized, en: `Layout ${code}`, ja: `${code}タイプ` };
+  }
+
+  const replacements: Array<[RegExp, string, string]> = [
+    [/箐英|菁英|青英/g, "Seiei", "菁英"],
+    [/新宿御苑/g, "Shinjuku Gyoen", "新宿御苑"],
+    [/浅草/g, "Asakusa", "浅草"],
+    [/東大|东大|本郷/g, "Hongo", "本郷"],
+    [/新宿/g, "Shinjuku", "新宿"],
+    [/民宿|ステイ/g, "Stay", "ステイ"],
+    [/公館|公寓|住宅/g, "Residence", "レジデンス"]
+  ];
+
+  let en = normalized;
+  let ja = normalized.replace(/户型/g, "タイプ");
+  for (const [pattern, enText, jaText] of replacements) {
+    en = en.replace(pattern, ` ${enText} `);
+    ja = ja.replace(pattern, jaText);
+  }
+  en = en.replace(/\s+/g, " ").trim();
+  ja = ja.replace(/\s+/g, " ").replace(/\s+(I|II|III|IV|V)$/i, " $1").trim();
+
+  // If we could not convert anything, keep the original text as a safe fallback.
+  if (en === normalized) en = normalized;
+  if (ja === normalized) ja = normalized;
+
+  return { zh: normalized, en, ja };
+}
+
+function syncLocalizedValue(current: Record<Locale, string>, lang: Locale, value: string) {
+  if (lang !== "zh") return { ...current, [lang]: value };
+  const smart = romanizeStayName(value);
+  return {
+    zh: value,
+    en: smart.en || value,
+    ja: smart.ja || value
+  };
+}
+
+function extractEmbedUrl(value: string) {
+  const trimmed = value.trim();
+  const srcMatch = trimmed.match(/src=["']([^"']+)["']/i);
+  if (srcMatch?.[1]) return srcMatch[1];
+  return trimmed;
+}
+
+function copyImages(images: MediaImage[]) {
+  return images.map((image) => ({ ...image, id: uid("img") }));
+}
+
+function copyVideos(videos: MediaVideo[]) {
+  return videos.map((video) => ({ ...video, id: uid("video") }));
 }
 
 function blankRoomType(): RoomType {
@@ -215,12 +282,12 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
 
   function updateBuildingText(field: "name" | "description", value: string) {
     if (!currentBuilding) return;
-    updateBuilding({ [field]: { ...currentBuilding[field], [locale]: value } });
+    updateBuilding({ [field]: syncLocalizedValue(currentBuilding[field], locale, value) });
   }
 
   function updateRoomText(field: "name" | "description", value: string) {
     if (!currentRoom) return;
-    updateRoom({ [field]: { ...currentRoom[field], [locale]: value } });
+    updateRoom({ [field]: syncLocalizedValue(currentRoom[field], locale, value) });
   }
 
   function addBuilding() {
@@ -276,6 +343,49 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
     });
   }
 
+
+  async function addRoomImages(files: FileList) {
+    if (!currentRoom) return;
+    const uploaded: MediaImage[] = [];
+    for (const file of Array.from(files)) {
+      const url = await readFileAsDataUrl(file);
+      uploaded.push({
+        id: uid("room-img"),
+        url,
+        type: currentRoom.images.length || uploaded.length ? "gallery" : "cover",
+        alt: file.name || currentRoom.roomType
+      });
+    }
+    const nextImages: MediaImage[] = [...currentRoom.images, ...uploaded].map((image, index) => ({ ...image, type: index === 0 ? "cover" : "gallery" }));
+    updateRoom({ images: nextImages });
+  }
+
+  function updateRoomImages(value: string) {
+    const images: MediaImage[] = normalizeList(value).map((url, index) => ({
+      id: currentRoom.images[index]?.id ?? uid("room-img"),
+      url,
+      type: index === 0 ? "cover" : "gallery",
+      alt: currentRoom.images[index]?.alt || currentRoom.roomType
+    }));
+    updateRoom({ images });
+  }
+
+  function setRoomCover(imageId: string) {
+    if (!currentRoom) return;
+    const selected = currentRoom.images.find((image) => image.id === imageId);
+    const rest = currentRoom.images.filter((image) => image.id !== imageId);
+    const nextImages = selected ? [selected, ...rest] : currentRoom.images;
+    updateRoom({ images: nextImages.map((image, index) => ({ ...image, type: index === 0 ? "cover" : "gallery" })) as MediaImage[] });
+  }
+
+  function removeRoomImage(imageId: string) {
+    if (!currentRoom) return;
+    const nextImages: MediaImage[] = currentRoom.images
+      .filter((image) => image.id !== imageId)
+      .map((image, index) => ({ ...image, type: index === 0 ? "cover" : "gallery" }));
+    updateRoom({ images: nextImages });
+  }
+
   function addRoomType() {
     if (!currentBuilding) return;
     const room = blankRoomType();
@@ -301,8 +411,8 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
         ja: `${currentRoom.name.ja || currentRoom.roomType} コピー`
       },
       rooms: [...currentRoom.rooms],
-      images: currentRoom.images.map((image) => ({ ...image, id: uid("img") })),
-      videos: currentRoom.videos.map((video) => ({ ...video, id: uid("video") })),
+      images: copyImages(currentRoom.images),
+      videos: copyVideos(currentRoom.videos),
       unavailableDates: currentRoom.unavailableDates.map((range) => ({ ...range })),
       status: "draft"
     };
@@ -336,12 +446,16 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
     });
   }
 
-  function addRoomVideos(files: FileList) {
-    const nextVideos = Array.from(files).map((file) => ({
-      id: uid("video"),
-      url: URL.createObjectURL(file),
-      title: file.name || "Room Tour"
-    }));
+  async function addRoomVideos(files: FileList) {
+    const nextVideos = [];
+    for (const file of Array.from(files)) {
+      const url = await readFileAsDataUrl(file);
+      nextVideos.push({
+        id: uid("video"),
+        url,
+        title: file.name || "Room Tour"
+      });
+    }
     updateRoom({ videos: [...currentRoom.videos, ...nextVideos] });
   }
 
@@ -489,8 +603,9 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
               </div>
             </EditorPanel>
 
-            <EditorPanel icon={<ImageIcon size={19} />} title="图片管理">
+            <EditorPanel icon={<ImageIcon size={19} />} title="大楼图片管理">
               <BuildingImageDropZone onFiles={addBuildingImages} />
+              <p className="text-sm leading-6 text-night/50">这里只管理大楼外观、公共区域和整栋展示图，不会影响各个户型自己的图片。</p>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {currentBuilding.gallery.map((image, index) => (
                   <div
@@ -520,21 +635,41 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
                   </div>
                 ))}
               </div>
-              <Field label="房型图片 URL，英文逗号分隔">
-                <input
-                  value={currentRoom.images.map((image) => image.url).join(", ")}
-                  onChange={(event) =>
-                    updateRoom({
-                      images: normalizeList(event.target.value).map((url, index) => ({
-                        id: uid("img"),
-                        url,
-                        type: index === 0 ? "cover" : "gallery",
-                        alt: currentRoom.roomType
-                      }))
-                    })
-                  }
-                  className="input"
-                />
+            </EditorPanel>
+
+            <EditorPanel icon={<DoorOpen size={19} />} title={`户型图片管理 · ${text(currentRoom.name, locale) || currentRoom.roomType}`}>
+              <RoomImageDropZone onFiles={addRoomImages} />
+              <p className="text-sm leading-6 text-night/50">这里只管理当前户型图片。删除当前户型图片只会解除这个户型的图片，不会影响复制来源或其他户型。</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {currentRoom.images.map((image, index) => (
+                  <div
+                    key={image.id}
+                    draggable
+                    onDragStart={(event) => event.dataTransfer.setData("room-image-index", String(index))}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      const from = Number(event.dataTransfer.getData("room-image-index"));
+                      const images: MediaImage[] = moveItem(currentRoom.images, from, index).map((item, itemIndex) => ({ ...item, type: itemIndex === 0 ? "cover" : "gallery" }));
+                      updateRoom({ images });
+                    }}
+                    className="overflow-hidden rounded-[22px] border border-line bg-white"
+                  >
+                    <div className="relative h-32 bg-line">
+                      <Image src={image.url} alt={image.alt} fill className="object-cover" />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-3">
+                      <button onClick={() => setRoomCover(image.id)} className="text-xs font-bold text-brand">
+                        {index === 0 || image.type === "cover" ? "户型封面" : "设为封面"}
+                      </button>
+                      <button onClick={() => removeRoomImage(image.id)} className="text-red-600" aria-label="删除当前户型图片">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Field label="户型图片 URL，英文逗号分隔">
+                <input value={currentRoom.images.map((image) => image.url).join(", ")} onChange={(event) => updateRoomImages(event.target.value)} className="input" />
               </Field>
             </EditorPanel>
 
@@ -611,7 +746,7 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
                   <input value={currentRoom.map.address} onChange={(event) => updateRoom({ map: { ...currentRoom.map, address: event.target.value } })} className="input" />
                 </Field>
                 <Field label="嵌入链接或图片 URL">
-                  <input value={currentRoom.map.embedUrl} onChange={(event) => updateRoom({ map: { ...currentRoom.map, embedUrl: event.target.value } })} className="input" />
+                  <input value={currentRoom.map.embedUrl} onChange={(event) => updateRoom({ map: { ...currentRoom.map, embedUrl: extractEmbedUrl(event.target.value) } })} className="input" />
                 </Field>
               </div>
             </EditorPanel>
@@ -814,6 +949,24 @@ function BuildingImageDropZone({ onFiles }: { onFiles: (files: FileList) => void
   );
 }
 
+function RoomImageDropZone({ onFiles }: { onFiles: (files: FileList) => void }) {
+  return (
+    <label
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault();
+        onFiles(event.dataTransfer.files);
+      }}
+      className="flex cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-line bg-white p-7 text-center transition hover:bg-[#fbfaf7]"
+    >
+      <ImageIcon className="mb-3 text-brand" />
+      <span className="text-sm font-semibold">拖拽或选择当前户型图片</span>
+      <span className="mt-1 text-xs text-night/45">只保存到当前户型，和大楼图片、其他户型图片分开管理。</span>
+      <input type="file" accept="image/*" multiple className="hidden" onChange={(event) => event.target.files && onFiles(event.target.files)} />
+    </label>
+  );
+}
+
 function VideoDropZone({ onFiles }: { onFiles: (files: FileList) => void }) {
   return (
     <label
@@ -826,7 +979,7 @@ function VideoDropZone({ onFiles }: { onFiles: (files: FileList) => void }) {
     >
       <Video className="mb-3 text-brand" />
       <span className="text-sm font-semibold">拖拽 MP4 视频到这里</span>
-      <span className="mt-1 text-xs text-night/45">只优化后台 UI，不改变现有上传和发布逻辑。</span>
+      <span className="mt-1 text-xs text-night/45">会保存为可发布预览的数据；大视频建议后续接 COS 正式上传。</span>
       <input type="file" accept="video/mp4,video/*" multiple className="hidden" onChange={(event) => event.target.files && onFiles(event.target.files)} />
     </label>
   );

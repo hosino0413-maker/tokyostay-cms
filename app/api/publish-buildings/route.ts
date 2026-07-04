@@ -98,6 +98,11 @@ function txt(value: Record<Locale, string>, lang: Locale) {
   return value?.[lang] || value?.en || value?.zh || value?.ja || "";
 }
 
+function extractEmbedUrl(value = "") {
+  const srcMatch = value.match(/src=["']([^"']+)["']/i);
+  return srcMatch?.[1] || value;
+}
+
 function shell(title: string, body: string) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(title)}</title><style>${css}</style></head><body>${body}</body></html>`;
 }
@@ -351,9 +356,15 @@ function listHtml(buildings: Building[]) {
 }
 
 function buildingHtml(building: Building) {
-  const rooms = building.roomTypes.filter((room) => room.status === "published").map((room) => `<a class="room-card" data-href-base="../../building/${esc(building.id)}/room/${esc(room.id)}/index.html" href="../../building/${esc(building.id)}/room/${esc(room.id)}/index.html"><img src="${esc(roomCover(room))}" alt="${esc(txt(room.name, "en"))}"><div class="body">${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(txt(room.name, lang))}</h2><div class="meta"><span>${esc(room.roomType)} · ${esc(room.capacity)} · ${esc(room.size)}</span><span>${room.rooms.length} rooms: ${esc(room.rooms.join(", ") || "-")}</span></div><p class="muted">${esc(txt(room.description, lang))}</p><div class="tags">${room.tags.slice(0, 5).map((tag) => `<span class="tag">${esc(tagLabel(tag, lang))}</span>`).join("")}</div><span class="btn">${esc(labels[lang].viewDetails)}</span></div>`).join("")}</div></a>`).join("");
-  const thumbs = building.gallery.map((image) => `<img src="${esc(image.url)}" alt="${esc(image.alt)}">`).join("");
-  return shell(txt(building.name, "en"), `${nav("../../")}<main class="wrap">${langs.map((lang) => `<a class="back" data-lang="${lang}" href="../../properties/index.html?lang=${lang}">← ${esc(labels[lang].backResidences)}</a>`).join("")}<section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">Residence</span><h1>${esc(txt(building.name, lang))}</h1><p>${esc(building.area)} · ${esc(station(building, lang))}</p></div>`).join("")}</div><div class="hero-img"><img src="${esc(cover(building))}" alt="${esc(txt(building.name, "en"))}"></div></section><section class="gallery"><img class="mainimg" src="${esc(cover(building))}" alt="${esc(txt(building.name, "en"))}"><div class="thumbs">${thumbs}</div></section><section class="panel" style="margin-top:24px">${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(txt(building.name, lang))}</h2><p class="muted">${esc(txt(building.description, lang))}</p></div>`).join("")}</section><section class="section-title"><h2>Room Types</h2></section><section class="room-list">${rooms}</section></main>${languageScript()}`);
+  const rooms = building.roomTypes.filter((room) => room.status === "published").map((room) => {
+    const href = `../../building/${esc(building.id)}/room/${esc(room.id)}/index.html`;
+    return `<a class="room-card" data-href-base="${href}" href="${href}?lang=en"><img src="${esc(roomCover(room) || cover(building))}" alt="${esc(txt(room.name, "en"))}"><div>${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(txt(room.name, lang))}</h2><p class="muted">${esc(room.roomType)} · ${esc(room.capacity)} · ${esc(room.size)}</p><div class="tags">${room.amenities.slice(0, 5).map((item) => `<span class="tag">${esc(tagLabel(item, lang))}</span>`).join("")}</div><span class="btn">${esc(labels[lang].viewDetails)}</span></div>`).join("")}</div></a>`;
+  }).join("");
+  const buildingImages = building.gallery.length ? building.gallery : [{ id: "building-cover", url: cover(building), alt: txt(building.name, "en") }];
+  return shell(
+    txt(building.name, "en"),
+    `${nav("../../")}<main class="wrap">${langs.map((lang) => `<a class="back" data-lang="${lang}" href="../../properties/index.html?lang=${lang}">← ${esc(labels[lang].backResidences)}</a>`).join("")}<section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">Residence</span><h1>${esc(txt(building.name, lang))}</h1><p>${esc(building.area)} · ${esc(station(building, lang))}</p></div>`).join("")}</div><div class="hero-img"><img src="${esc(cover(building))}" alt="${esc(txt(building.name, "en"))}"></div></section>${galleryHtml(buildingImages, txt(building.name, "en"))}<section class="panel" style="margin-top:24px">${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(txt(building.name, lang))}</h2><p class="muted">${esc(txt(building.description, lang))}</p></div>`).join("")}</section><section class="section-title"><h2>Room Types</h2></section><section class="room-list">${rooms}</section></main>${roomDetailScript()}${languageScript()}`
+  );
 }
 
 function sectionNavHtml(kind: "desktop" | "mobile") {
@@ -392,7 +403,8 @@ function roomHtml(building: Building, room: RoomType) {
   const details = `${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(labels[lang].overview)}</h2><div class="facts"><span class="fact">${esc(building.area)}</span><span class="fact">${esc(room.roomType)}</span><span class="fact">${esc(room.capacity)}</span><span class="fact">${esc(room.size)}</span><span class="fact">${esc(station(building, lang))}</span></div><p class="muted">${esc(txt(room.description, lang))}</p></div>`).join("")}`;
   const amenities = `${langs.map((lang) => `<div data-lang="${lang}"><h2>${esc(labels[lang].amenities)}</h2><div class="tags">${room.amenities.map((item) => `<span class="tag">${esc(tagLabel(item, lang))}</span>`).join("")}</div></div>`).join("")}`;
   const video = `<h2>${esc(labels.en.video)}</h2>${room.videos[0] ? (room.videos[0].url.includes("youtube") ? `<iframe class="media" src="${esc(room.videos[0].url)}" allowfullscreen></iframe>` : `<video class="video" src="${esc(room.videos[0].url)}" controls></video>`) : `<p class="muted">-</p>`}`;
-  const map = `<h2>${esc(labels.en.map)}</h2>${room.map.embedUrl ? (room.map.type === "image" ? `<img class="media" src="${esc(room.map.embedUrl)}" alt="${esc(room.map.address)}">` : `<iframe class="media" src="${esc(room.map.embedUrl)}" loading="lazy"></iframe>`) : `<p class="muted">-</p>`}`;
+  const mapUrl = extractEmbedUrl(room.map.embedUrl);
+  const map = `<h2>${esc(labels.en.map)}</h2>${mapUrl ? (room.map.type === "image" ? `<img class="media" src="${esc(mapUrl)}" alt="${esc(room.map.address)}">` : `<iframe class="media" src="${esc(mapUrl)}" loading="lazy"></iframe>`) : `<p class="muted">-</p>`}`;
   return shell(txt(room.name, "en"), `${nav("../../../../")}<main class="wrap">${langs.map((lang) => `<a class="back" data-lang="${lang}" href="../../../${esc(building.id)}/index.html?lang=${lang}">← ${esc(labels[lang].backTypes)}</a>`).join("")}<section class="hero"><div class="hero-copy">${langs.map((lang) => `<div data-lang="${lang}"><span class="eyebrow">${esc(txt(building.name, lang))}</span><h1>${esc(txt(room.name, lang))}</h1><p>${esc(room.roomType)} · ${esc(room.capacity)} · ${esc(room.size)} · ${esc(station(building, lang))}</p></div>`).join("")}${inquiryHtml(building, room)}</div><div class="hero-img"><img src="${esc(main)}" alt="${esc(txt(room.name, "en"))}"></div></section>${sectionNavHtml("mobile")}<section class="room-layout">${sectionNavHtml("desktop")}<div class="room-content">${galleryHtml(galleryImages, txt(room.name, "en"))}<section id="overview" class="detail"><article class="panel">${details}</article><aside class="panel">${calendarHtml(room)}</aside></section><section id="amenities" class="panel" style="margin-top:24px">${amenities}</section><section id="video" class="panel" style="margin-top:24px">${video}</section><section id="map" class="panel" style="margin-top:24px">${map}</section></div></section></main>${roomDetailScript()}${languageScript()}`);
 }
 

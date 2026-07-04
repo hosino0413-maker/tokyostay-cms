@@ -1,6 +1,11 @@
 import Image from "next/image";
 import type { MapConfig, MediaVideo } from "@/types/property";
 
+function extractEmbedUrl(value = "") {
+  const srcMatch = value.match(/src=["']([^"']+)["']/i);
+  return srcMatch?.[1] || value;
+}
+
 export function VideoPanel({ videos }: { videos: MediaVideo[] }) {
   const video = videos[0];
   return (
@@ -18,6 +23,7 @@ export function VideoPanel({ videos }: { videos: MediaVideo[] }) {
 }
 
 export function MapPanel({ map }: { map: MapConfig }) {
+  const embedUrl = extractEmbedUrl(map.embedUrl);
   return (
     <section className="rounded-[28px] border border-black/[0.06] bg-white/86 p-5 shadow-card md:p-8">
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -27,12 +33,12 @@ export function MapPanel({ map }: { map: MapConfig }) {
         </div>
         <span className="rounded-full bg-mist px-3 py-1 text-xs font-bold uppercase text-night/55">{map.type}</span>
       </div>
-      {map.type === "image" && map.embedUrl ? (
+      {map.type === "image" && embedUrl ? (
         <div className="relative aspect-[16/10] w-full max-w-full overflow-hidden rounded-[20px]">
-          <Image src={map.embedUrl} alt={map.address || "Map"} fill className="object-cover" />
+          <Image src={embedUrl} alt={map.address || "Map"} fill className="object-cover" />
         </div>
-      ) : map.embedUrl ? (
-        <iframe src={map.embedUrl} title="Property map" className="aspect-[16/10] w-full max-w-full overflow-hidden rounded-[20px] border-0" loading="lazy" />
+      ) : embedUrl ? (
+        <iframe src={embedUrl} title="Property map" className="aspect-[16/10] w-full max-w-full overflow-hidden rounded-[20px] border-0" loading="lazy" />
       ) : (
         <div className="flex aspect-[16/10] w-full max-w-full items-center justify-center overflow-hidden rounded-[20px] bg-mist text-night/45">Map will appear here after publishing.</div>
       )}

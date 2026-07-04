@@ -18,7 +18,7 @@ import {
   UploadCloud,
   Video
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { text } from "@/lib/properties";
 import { normalizeTagIds, tagGroups, tagLabel } from "@/lib/tags";
 import type { Building, Locale, MediaImage, MediaVideo, RoomType } from "@/types/property";
@@ -184,14 +184,33 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
   const [currentRoomId, setCurrentRoomId] = useState(initialBuildings[0]?.roomTypes[0]?.id ?? "");
   const [locale, setLocale] = useState<Locale>("zh");
   const [publishResult, setPublishResult] = useState("");
+  const [dataStatus, setDataStatus] = useState("正在读取 Supabase 数据...");
+  const [isSaving, setIsSaving] = useState(false);
+  const jsonImportInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (!saved) return;
-    const parsed = normalizeBuildingTags(JSON.parse(saved) as Building[]);
-    setBuildings(parsed);
-    setCurrentBuildingId(parsed[0]?.id ?? "");
-    setCurrentRoomId(parsed[0]?.roomTypes[0]?.id ?? "");
+    let cancelled = false;
+
+    async function loadSupabaseBuildings() {
+      try {
+        const res = await fetch("/api/buildings", { cache: "no-store" });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || "Supabase 数据读取失败");
+        if (cancelled) return;
+        const remoteBuildings = normalizeBuildingTags((payload.buildings ?? []) as Building[]);
+        setBuildings(remoteBuildings);
+        setCurrentBuildingId(remoteBuildings[0]?.id ?? "");
+        setCurrentRoomId(remoteBuildings[0]?.roomTypes[0]?.id ?? "");
+        setDataStatus(remoteBuildings.length ? "已连接 Supabase，当前数据来自数据库。" : "Supabase 暂无房源数据，可从本地数据导入。");
+      } catch (error) {
+        if (!cancelled) setDataStatus(error instanceof Error ? error.message : "Supabase 数据读取失败");
+      }
+    }
+
+    loadSupabaseBuildings();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -212,8 +231,93 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
     [currentBuilding, currentRoom]
   );
 
-  function saveNow() {
+  async function saveNow() {
+    setIsSaving(true);
     localStorage.setItem(storageKey, JSON.stringify(buildings));
+    try {
+      const res = await fetch("/api/buildings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buildings })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "保存到 Supabase 失败");
+      setDataStatus(`已保存到 Supabase（${payload.count ?? buildings.length} 个楼盘）。`);
+    } catch (error) {
+      setDataStatus(error instanceof Error ? error.message : "保存到 Supabase 失败");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(buildings, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tokyostay-buildings-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importLocalStorageToSupabase() {
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) {
+      setDataStatus("没有找到 localStorage 本地数据。");
+      return;
+    }
+    try {
+      const parsed = normalizeBuildingTags(JSON.parse(saved) as Building[]);
+      setBuildings(parsed);
+      setCurrentBuildingId(parsed[0]?.id ?? "");
+      setCurrentRoomId(parsed[0]?.roomTypes[0]?.id ?? "");
+      setIsSaving(true);
+      const res = await fetch("/api/buildings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buildings: parsed })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "导入 Supabase 失败");
+      setDataStatus(`已从 localStorage 导入到 Supabase（${payload.count ?? parsed.length} 个楼盘）。`);
+    } catch (error) {
+      setDataStatus(error instanceof Error ? error.message : "导入 Supabase 失败");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function importJsonToSupabase(file: File) {
+    try {
+      const raw = await file.text();
+      const payload = JSON.parse(raw);
+      const parsedBuildings = normalizeBuildingTags((Array.isArray(payload) ? payload : payload.buildings ?? []) as Building[]);
+      const roomCount = parsedBuildings.reduce((sum, building) => sum + (building.roomTypes?.length ?? 0), 0);
+      if (!parsedBuildings.length) {
+        setDataStatus("JSON 中没有找到 buildings 数据。");
+        return;
+      }
+      const confirmed = window.confirm(`将导入 ${parsedBuildings.length} 个大楼、${roomCount} 个户型到 Supabase。是否继续？`);
+      if (!confirmed) return;
+      setBuildings(parsedBuildings);
+      setCurrentBuildingId(parsedBuildings[0]?.id ?? "");
+      setCurrentRoomId(parsedBuildings[0]?.roomTypes[0]?.id ?? "");
+      setIsSaving(true);
+      const res = await fetch("/api/buildings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buildings: parsedBuildings })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "导入 JSON 失败");
+      localStorage.setItem(storageKey, JSON.stringify(parsedBuildings));
+      setDataStatus(`JSON 已导入 Supabase（${parsedBuildings.length} 个大楼，${roomCount} 个户型）。`);
+    } catch (error) {
+      setDataStatus(error instanceof Error ? error.message : "导入 JSON 失败");
+    } finally {
+      setIsSaving(false);
+      if (jsonImportInputRef.current) jsonImportInputRef.current.value = "";
+    }
   }
 
   async function generateAi() {
@@ -253,12 +357,12 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
   }
 
   async function publishToWebsite() {
-    saveNow();
+    await saveNow();
     setPublishResult("正在同步到网站...");
     const res = await fetch("/api/publish-buildings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ buildings, currentBuildingId: currentBuilding?.id, currentRoomId: currentRoom?.id })
+      body: JSON.stringify({ currentBuildingId: currentBuilding?.id, currentRoomId: currentRoom?.id })
     });
     const payload = await res.json();
     setPublishResult(res.ok ? payload.listUrl || payload.url || "同步完成" : payload.error || "同步失败，请稍后重试");
@@ -459,7 +563,38 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
     updateRoom({ videos: [...currentRoom.videos, ...nextVideos] });
   }
 
-  if (!currentBuilding || !currentRoom) return null;
+  if (!currentBuilding || !currentRoom) {
+    return (
+      <div className="min-h-screen bg-[#f7f4ee] p-6 text-ink">
+        <div className="mx-auto max-w-3xl rounded-[28px] border border-line/80 bg-white p-8 shadow-card">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-brand">TokyoStay CMS</p>
+          <h1 className="mt-3 text-3xl font-semibold">Supabase 暂无房源数据</h1>
+          <p className="mt-3 text-night/60">{dataStatus}</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button onClick={() => jsonImportInputRef.current?.click()} disabled={isSaving} className="admin-action-button bg-white text-ink disabled:opacity-50">
+              <UploadCloud size={16} /> 导入 JSON
+            </button>
+            <button onClick={addBuilding} className="admin-action-button bg-ink text-white">
+              <Plus size={16} /> 新增楼盘
+            </button>
+            <button onClick={importLocalStorageToSupabase} disabled={isSaving} className="admin-action-button bg-white text-ink disabled:opacity-50">
+              <UploadCloud size={16} /> 从本地数据导入
+            </button>
+          </div>
+          <input
+            ref={jsonImportInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) importJsonToSupabase(file);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const currentStatus = statusMeta(currentRoom.status);
 
@@ -469,11 +604,21 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-brand">TokyoStay CMS</p>
+            <p className="mt-1 max-w-xl truncate text-xs text-night/50">{dataStatus}</p>
             <h1 className="truncate text-lg font-semibold">房源运营工作台</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={saveNow} className="admin-action-button bg-white text-ink">
+            <button onClick={saveNow} disabled={isSaving} className="admin-action-button bg-white text-ink disabled:opacity-50">
               <Save size={16} /> 保存草稿
+            </button>
+            <button onClick={exportJson} className="admin-action-button bg-white text-ink">
+              <Copy size={16} /> 导出 JSON
+            </button>
+            <button onClick={importLocalStorageToSupabase} disabled={isSaving} className="admin-action-button bg-white text-ink disabled:opacity-50">
+              <UploadCloud size={16} /> 导入本地
+            </button>
+            <button onClick={() => jsonImportInputRef.current?.click()} disabled={isSaving} className="admin-action-button bg-white text-ink disabled:opacity-50">
+              <UploadCloud size={16} /> 导入 JSON
             </button>
             <Link href={previewHref} target="_blank" className="admin-action-button bg-white text-ink">
               <Eye size={16} /> 预览
@@ -492,6 +637,16 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
       </header>
 
       <main className="mx-auto grid min-h-[calc(100vh-64px)] max-w-[1680px] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_360px]">
+        <input
+          ref={jsonImportInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) importJsonToSupabase(file);
+          }}
+        />
         <aside className="border-r border-line/70 bg-white/72 p-4 backdrop-blur lg:sticky lg:top-16 lg:h-[calc(100vh-64px)] lg:overflow-y-auto">
           <button onClick={addBuilding} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-white shadow-card">
             <Plus size={17} /> 新增楼盘

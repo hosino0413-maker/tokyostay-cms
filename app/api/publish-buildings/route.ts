@@ -1,5 +1,6 @@
 import COS from "cos-nodejs-sdk-v5";
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseBuildings } from "@/lib/supabase/buildings";
 import { tagLabel } from "@/lib/tags";
 import type { Building, Locale, RoomType } from "@/types/property";
 
@@ -427,7 +428,15 @@ async function uploadText(cos: COS, key: string, content: string) {
 
 export async function POST(request: NextRequest) {
   const payload = await request.json();
-  const buildings = (Array.isArray(payload.buildings) ? payload.buildings : []) as Building[];
+  let buildings = [] as Building[];
+  try {
+    buildings = await getSupabaseBuildings();
+  } catch {
+    buildings = [];
+  }
+  if (!buildings.length) {
+    buildings = (Array.isArray(payload.buildings) ? payload.buildings : []) as Building[];
+  }
   if (!buildings.length) return NextResponse.json({ error: "Missing building data" }, { status: 400 });
 
   const secretId = process.env.TENCENT_SECRET_ID;

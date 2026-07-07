@@ -9,6 +9,9 @@ export type MediaImage = {
   url: string;
   type?: "cover" | "gallery";
   alt: string;
+  isBase64Stored?: boolean;
+  originalUrlOmitted?: boolean;
+  previewLabel?: string;
 };
 
 export type MediaVideo = {

@@ -40,6 +40,73 @@ type AvailabilityRow = {
   end_date: string;
 };
 
+type GetSupabaseBuildingsOptions = {
+  adminMode?: boolean;
+};
+
+const base64PreviewLabel = "Base64 image stored in database. Replace with COS URL recommended.";
+
+function isBase64ImageUrl(url?: string | null) {
+  return typeof url === "string" && url.startsWith("data:image/");
+}
+
+function isOmittedImage(image: MediaImage) {
+  return Boolean(image.isBase64Stored || image.originalUrlOmitted);
+}
+
+function stripImageAdminFlags(image: MediaImage): MediaImage {
+  const { isBase64Stored, originalUrlOmitted, previewLabel, ...cleanImage } = image;
+  return cleanImage;
+}
+
+function imageForAdmin(image: MediaImage): MediaImage {
+  if (!isBase64ImageUrl(image.url)) return image;
+  return {
+    id: image.id,
+    url: "",
+    type: image.type,
+    alt: image.alt,
+    isBase64Stored: true,
+    originalUrlOmitted: true,
+    previewLabel: base64PreviewLabel
+  };
+}
+
+function buildingForAdmin(building: Building): Building {
+  return {
+    ...building,
+    coverImage: isBase64ImageUrl(building.coverImage) ? "" : building.coverImage,
+    gallery: building.gallery.map(imageForAdmin),
+    roomTypes: building.roomTypes.map((room) => ({
+      ...room,
+      images: room.images.map(imageForAdmin)
+    }))
+  };
+}
+
+function mergeImagesForSave(incoming: MediaImage[], existing: MediaImage[] = []) {
+  const existingById = new Map(existing.map((image) => [image.id, image]));
+
+  const mergedImages: Array<MediaImage | null> = incoming
+    .map((image, index) => {
+      if (isOmittedImage(image)) {
+        const original = existingById.get(image.id);
+        if (!original) return null;
+        return {
+          ...original,
+          type: image.type ?? original.type ?? (index === 0 ? "cover" : "gallery"),
+          alt: image.alt || original.alt
+        };
+      }
+
+      return {
+        ...stripImageAdminFlags(image),
+        type: image.type ?? (index === 0 ? "cover" : "gallery")
+      };
+    });
+  return mergedImages.filter((image): image is MediaImage => Boolean(image));
+}
+
 function localized(value: unknown): LocalizedText {
   const data = (value && typeof value === "object" ? value : {}) as Partial<LocalizedText>;
   return {
@@ -64,7 +131,10 @@ function roomsValue(value: RoomTypeRow["rooms"]): string[] {
   return [];
 }
 
-function buildingToRow(building: Building) {
+function buildingToRow(building: Building, existing?: Pick<BuildingRow, "cover_image" | "gallery">) {
+  const gallery = mergeImagesForSave(building.gallery ?? [], arrayValue<MediaImage>(existing?.gallery));
+  const coverImage = building.coverImage || (isBase64ImageUrl(existing?.cover_image) ? existing?.cover_image : "");
+
   return {
     id: building.id,
     slug: building.id,
@@ -73,17 +143,18 @@ function buildingToRow(building: Building) {
     station: building.station,
     walk_minutes: building.walkMinutes,
     description: { ...building.description, _tags: building.tags ?? [] },
-    cover_image: building.coverImage,
-    gallery: building.gallery ?? [],
+    cover_image: coverImage,
+    gallery,
     featured: building.featured,
     sort_order: building.order,
     status: building.featured ? "published" : "draft"
   };
 }
 
-function roomToRow(buildingId: string, room: RoomType) {
+function roomToRow(buildingId: string, room: RoomType, existing?: Pick<RoomTypeRow, "images">) {
   const capacityNumbers = room.capacity.match(/\d+/g)?.map(Number) ?? [];
   const capacityNumber = capacityNumbers.length ? Math.max(...capacityNumbers) : null;
+  const images = mergeImagesForSave(room.images ?? [], arrayValue<MediaImage>(existing?.images));
 
   return {
     id: room.id,
@@ -97,7 +168,7 @@ function roomToRow(buildingId: string, room: RoomType) {
     description: { ...room.description, _capacity: room.capacity },
     tags: room.tags ?? [],
     amenities: room.amenities ?? [],
-    images: room.images ?? [],
+    images,
     videos: room.videos ?? [],
     map: room.map ?? {},
     status: room.status
@@ -142,7 +213,7 @@ function rowToRoom(row: RoomTypeRow, availability: DateRange[]): RoomType {
   };
 }
 
-export async function getSupabaseBuildings(): Promise<Building[]> {
+export async function getSupabaseBuildings(options: GetSupabaseBuildingsOptions = {}): Promise<Building[]> {
   const supabase = createServerSupabaseClient();
   const { data: buildingRows, error: buildingError } = await supabase
     .from("buildings")
@@ -180,21 +251,38 @@ export async function getSupabaseBuildings(): Promise<Building[]> {
     roomsByBuilding.set(row.building_id, rooms);
   }
 
-  return ((buildingRows ?? []) as BuildingRow[]).map((row) => rowToBuilding(row, roomsByBuilding.get(row.id) ?? []));
+  const buildings = ((buildingRows ?? []) as BuildingRow[]).map((row) => rowToBuilding(row, roomsByBuilding.get(row.id) ?? []));
+  return options.adminMode ? buildings.map(buildingForAdmin) : buildings;
 }
 
 export async function saveSupabaseBuildings(buildings: Building[]) {
   const supabase = createServerSupabaseClient();
   const buildingIds = buildings.map((building) => building.id);
   const roomIds = buildings.flatMap((building) => building.roomTypes.map((room) => room.id));
+  const { data: existingBuildingRows, error: existingBuildingRowsError } = await supabase
+    .from("buildings")
+    .select("id,cover_image,gallery");
+  if (existingBuildingRowsError) throw new Error(existingBuildingRowsError.message);
+
+  const { data: existingRoomRows, error: existingRoomRowsError } = await supabase.from("room_types").select("id,images");
+  if (existingRoomRowsError) throw new Error(existingRoomRowsError.message);
+
+  const existingBuildingsById = new Map(
+    ((existingBuildingRows ?? []) as Pick<BuildingRow, "id" | "cover_image" | "gallery">[]).map((row) => [row.id, row])
+  );
+  const existingRoomsById = new Map(((existingRoomRows ?? []) as Pick<RoomTypeRow, "id" | "images">[]).map((row) => [row.id, row]));
 
   if (buildingIds.length > 0) {
-    const { error } = await supabase.from("buildings").upsert(buildings.map(buildingToRow), { onConflict: "id" });
+    const { error } = await supabase
+      .from("buildings")
+      .upsert(buildings.map((building) => buildingToRow(building, existingBuildingsById.get(building.id))), { onConflict: "id" });
     if (error) throw new Error(error.message);
   }
 
   if (roomIds.length > 0) {
-    const roomRows = buildings.flatMap((building) => building.roomTypes.map((room) => roomToRow(building.id, room)));
+    const roomRows = buildings.flatMap((building) =>
+      building.roomTypes.map((room) => roomToRow(building.id, room, existingRoomsById.get(room.id)))
+    );
     const { error } = await supabase.from("room_types").upsert(roomRows, { onConflict: "id" });
     if (error) throw new Error(error.message);
   }

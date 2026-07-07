@@ -6,9 +6,10 @@ import type { Building } from "@/types/property";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const buildings = await getSupabaseBuildings();
+    const { searchParams } = new URL(request.url);
+    const buildings = await getSupabaseBuildings({ adminMode: searchParams.get("mode") !== "full" });
     return NextResponse.json({ buildings, ok: true });
   } catch (error) {
     return NextResponse.json(

@@ -172,6 +172,20 @@ function normalizeBuildingTags(buildings: Building[]) {
   }));
 }
 
+const base64ImageWarning = "当前有图片以 base64 形式保存在数据库中，可能导致后台加载变慢。建议后续上传到 COS 后替换为 URL。";
+
+function isOmittedImage(image?: MediaImage) {
+  return Boolean(image?.isBase64Stored || image?.originalUrlOmitted);
+}
+
+function imagePreviewUrl(image?: MediaImage) {
+  return image && !isOmittedImage(image) ? image.url : "";
+}
+
+function hasOmittedImages(images: MediaImage[]) {
+  return images.some(isOmittedImage);
+}
+
 function statusMeta(status: RoomType["status"]) {
   if (status === "published") return { label: "已发布", dot: "bg-emerald-500", chip: "bg-emerald-50 text-emerald-700" };
   if (status === "hidden") return { label: "隐藏", dot: "bg-zinc-400", chip: "bg-zinc-100 text-zinc-600" };
@@ -193,17 +207,23 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
 
     async function loadSupabaseBuildings() {
       try {
-        const res = await fetch("/api/buildings", { cache: "no-store" });
-        const payload = await res.json();
-        if (!res.ok) throw new Error(payload.error || "Supabase 数据读取失败");
+        const res = await fetch("/api/buildings?mode=admin", { cache: "no-store" });
+        const payload = await res.json().catch(() => null);
+        if (!payload) throw new Error("数据库读取失败，请检查 /api/buildings");
+        if (!res.ok || payload.ok === false) throw new Error(payload.error || "数据库读取失败，请检查 /api/buildings");
         if (cancelled) return;
         const remoteBuildings = normalizeBuildingTags((payload.buildings ?? []) as Building[]);
         setBuildings(remoteBuildings);
         setCurrentBuildingId(remoteBuildings[0]?.id ?? "");
         setCurrentRoomId(remoteBuildings[0]?.roomTypes[0]?.id ?? "");
-        setDataStatus(remoteBuildings.length ? "已连接 Supabase，当前数据来自数据库。" : "Supabase 暂无房源数据，可从本地数据导入。");
+        setDataStatus(remoteBuildings.length ? "已连接 Supabase，当前数据来自数据库。" : "Supabase 暂无房源数据，可以新建大楼或导入 JSON。");
       } catch (error) {
-        if (!cancelled) setDataStatus(error instanceof Error ? error.message : "Supabase 数据读取失败");
+        if (!cancelled) {
+          setBuildings([]);
+          setCurrentBuildingId("");
+          setCurrentRoomId("");
+          setDataStatus(error instanceof Error ? error.message : "数据库读取失败，请检查 /api/buildings");
+        }
       }
     }
 
@@ -227,7 +247,11 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
       : "/";
 
   const coverPreview = useMemo(
-    () => currentBuilding?.coverImage || currentBuilding?.gallery[0]?.url || currentRoom?.images[0]?.url || "",
+    () =>
+      currentBuilding?.coverImage ||
+      imagePreviewUrl(currentBuilding?.gallery.find((image) => imagePreviewUrl(image))) ||
+      imagePreviewUrl(currentRoom?.images.find((image) => imagePreviewUrl(image))) ||
+      "",
     [currentBuilding, currentRoom]
   );
 
@@ -465,13 +489,15 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
   }
 
   function updateRoomImages(value: string) {
-    const images: MediaImage[] = normalizeList(value).map((url, index) => ({
-      id: currentRoom.images[index]?.id ?? uid("room-img"),
+    const omittedImages = currentRoom.images.filter(isOmittedImage);
+    const existingUrlImages = currentRoom.images.filter((image) => !isOmittedImage(image));
+    const urlImages: MediaImage[] = normalizeList(value).map((url, index) => ({
+      id: existingUrlImages[index]?.id ?? uid("room-img"),
       url,
-      type: index === 0 ? "cover" : "gallery",
-      alt: currentRoom.images[index]?.alt || currentRoom.roomType
+      type: "gallery",
+      alt: existingUrlImages[index]?.alt || currentRoom.roomType
     }));
-    updateRoom({ images });
+    updateRoom({ images: [...omittedImages, ...urlImages].map((image, index) => ({ ...image, type: index === 0 ? "cover" : "gallery" })) });
   }
 
   function setRoomCover(imageId: string) {
@@ -761,6 +787,11 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
             <EditorPanel icon={<ImageIcon size={19} />} title="大楼图片管理">
               <BuildingImageDropZone onFiles={addBuildingImages} />
               <p className="text-sm leading-6 text-night/50">这里只管理大楼外观、公共区域和整栋展示图，不会影响各个户型自己的图片。</p>
+              {hasOmittedImages(currentBuilding.gallery) && (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+                  {base64ImageWarning}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {currentBuilding.gallery.map((image, index) => (
                   <div
@@ -777,7 +808,13 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
                     className="overflow-hidden rounded-[22px] border border-line bg-white"
                   >
                     <div className="relative h-32 bg-line">
-                      <Image src={image.url} alt={image.alt} fill className="object-cover" />
+                      {imagePreviewUrl(image) ? (
+                        <Image src={image.url} alt={image.alt} fill className="object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-4 text-center text-xs font-semibold leading-5 text-night/50">
+                          {image.previewLabel ?? "Image stored in database"}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-2 p-3">
                       <button onClick={() => setBuildingCover(image.id)} className="text-xs font-bold text-brand">
@@ -795,6 +832,11 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
             <EditorPanel icon={<DoorOpen size={19} />} title={`户型图片管理 · ${text(currentRoom.name, locale) || currentRoom.roomType}`}>
               <RoomImageDropZone onFiles={addRoomImages} />
               <p className="text-sm leading-6 text-night/50">这里只管理当前户型图片。删除当前户型图片只会解除这个户型的图片，不会影响复制来源或其他户型。</p>
+              {hasOmittedImages(currentRoom.images) && (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+                  {base64ImageWarning}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {currentRoom.images.map((image, index) => (
                   <div
@@ -810,7 +852,13 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
                     className="overflow-hidden rounded-[22px] border border-line bg-white"
                   >
                     <div className="relative h-32 bg-line">
-                      <Image src={image.url} alt={image.alt} fill className="object-cover" />
+                      {imagePreviewUrl(image) ? (
+                        <Image src={image.url} alt={image.alt} fill className="object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-4 text-center text-xs font-semibold leading-5 text-night/50">
+                          {image.previewLabel ?? "Image stored in database"}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-2 p-3">
                       <button onClick={() => setRoomCover(image.id)} className="text-xs font-bold text-brand">
@@ -824,7 +872,7 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
                 ))}
               </div>
               <Field label="户型图片 URL，英文逗号分隔">
-                <input value={currentRoom.images.map((image) => image.url).join(", ")} onChange={(event) => updateRoomImages(event.target.value)} className="input" />
+                <input value={currentRoom.images.filter((image) => !isOmittedImage(image)).map((image) => image.url).join(", ")} onChange={(event) => updateRoomImages(event.target.value)} className="input" />
               </Field>
             </EditorPanel>
 

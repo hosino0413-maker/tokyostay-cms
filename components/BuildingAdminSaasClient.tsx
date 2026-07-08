@@ -48,15 +48,6 @@ function moveItem<T>(items: T[], from: number, to: number) {
   return next;
 }
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function romanizeStayName(value: string) {
   const normalized = value
     .replace(/Ⅲ/g, "III")
@@ -116,14 +107,6 @@ function extractEmbedUrl(value: string) {
   return trimmed;
 }
 
-function copyImages(images: MediaImage[]) {
-  return images.map((image) => ({ ...image, id: uid("img") }));
-}
-
-function copyVideos(videos: MediaVideo[]) {
-  return videos.map((video) => ({ ...video, id: uid("video") }));
-}
-
 function blankRoomType(): RoomType {
   return {
     id: `room-${Date.now()}`,
@@ -163,11 +146,14 @@ function blankBuilding(): Building {
 function normalizeBuildingTags(buildings: Building[]) {
   return buildings.map((building) => ({
     ...building,
+    gallery: (building.gallery ?? []).map((image) => ({ ...image })),
     tags: normalizeTagIds(building.tags ?? []),
     roomTypes: building.roomTypes.map((room) => ({
       ...room,
       tags: normalizeTagIds(room.tags ?? room.amenities ?? []),
-      amenities: normalizeTagIds(room.amenities ?? room.tags ?? [])
+      amenities: normalizeTagIds(room.amenities ?? room.tags ?? []),
+      images: (room.images ?? []).map((image) => ({ ...image })),
+      videos: (room.videos ?? []).map((video) => ({ ...video }))
     }))
   }));
 }
@@ -184,6 +170,40 @@ function imagePreviewUrl(image?: MediaImage) {
 
 function hasOmittedImages(images: MediaImage[]) {
   return images.some(isOmittedImage);
+}
+
+async function uploadImageToCos({
+  file,
+  buildingId,
+  roomId,
+  target
+}: {
+  file: File;
+  buildingId: string;
+  roomId?: string;
+  target: "building-gallery" | "room-images";
+}) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Only image files can be uploaded here.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("buildingId", buildingId);
+  formData.append("target", target);
+  if (roomId) formData.append("roomId", roomId);
+
+  const res = await fetch("/api/upload", { method: "POST", body: formData });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok || !payload?.url) {
+    throw new Error(payload?.error || "COS upload failed.");
+  }
+
+  if (String(payload.url).startsWith("data:")) {
+    throw new Error("Upload returned an invalid data URL.");
+  }
+
+  return String(payload.url);
 }
 
 function statusMeta(status: RoomType["status"]) {
@@ -436,20 +456,31 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
   async function addBuildingImages(files: FileList) {
     if (!currentBuilding) return;
     const uploaded: MediaImage[] = [];
-    for (const file of Array.from(files)) {
-      const url = await readFileAsDataUrl(file);
-      uploaded.push({
-        id: uid("building-img"),
-        url,
-        type: currentBuilding.gallery.length || uploaded.length ? "gallery" : "cover",
-        alt: file.name
-      });
+    try {
+      setDataStatus("Uploading building images to COS...");
+      for (const file of Array.from(files)) {
+        const url = await uploadImageToCos({
+          file,
+          buildingId: currentBuilding.id,
+          target: "building-gallery"
+        });
+        uploaded.push({
+          id: uid("building-img"),
+          url,
+          type: currentBuilding.gallery.length || uploaded.length ? "gallery" : "cover",
+          alt: file.name,
+        });
+      }
+    } catch (error) {
+      setDataStatus(error instanceof Error ? error.message : "COS upload failed.");
+      return;
     }
     const nextGallery = [...currentBuilding.gallery, ...uploaded];
     updateBuilding({
       gallery: nextGallery,
       coverImage: currentBuilding.coverImage || nextGallery[0]?.url || ""
     });
+    setDataStatus(`Uploaded ${uploaded.length} building image(s) to COS.`);
   }
 
   function setBuildingCover(imageId: string) {
@@ -473,19 +504,31 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
 
 
   async function addRoomImages(files: FileList) {
-    if (!currentRoom) return;
+    if (!currentBuilding || !currentRoom) return;
     const uploaded: MediaImage[] = [];
-    for (const file of Array.from(files)) {
-      const url = await readFileAsDataUrl(file);
-      uploaded.push({
-        id: uid("room-img"),
-        url,
-        type: currentRoom.images.length || uploaded.length ? "gallery" : "cover",
-        alt: file.name || currentRoom.roomType
-      });
+    try {
+      setDataStatus("Uploading room images to COS...");
+      for (const file of Array.from(files)) {
+        const url = await uploadImageToCos({
+          file,
+          buildingId: currentBuilding.id,
+          roomId: currentRoom.id,
+          target: "room-images"
+        });
+        uploaded.push({
+          id: uid("room-img"),
+          url,
+          type: currentRoom.images.length || uploaded.length ? "gallery" : "cover",
+          alt: file.name || currentRoom.roomType
+        });
+      }
+    } catch (error) {
+      setDataStatus(error instanceof Error ? error.message : "COS upload failed.");
+      return;
     }
     const nextImages: MediaImage[] = [...currentRoom.images, ...uploaded].map((image, index) => ({ ...image, type: index === 0 ? "cover" : "gallery" }));
     updateRoom({ images: nextImages });
+    setDataStatus(`Uploaded ${uploaded.length} room image(s) to COS.`);
   }
 
   function updateRoomImages(value: string) {
@@ -541,8 +584,8 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
         ja: `${currentRoom.name.ja || currentRoom.roomType} コピー`
       },
       rooms: [...currentRoom.rooms],
-      images: copyImages(currentRoom.images),
-      videos: copyVideos(currentRoom.videos),
+      images: [],
+      videos: [],
       unavailableDates: currentRoom.unavailableDates.map((range) => ({ ...range })),
       status: "draft"
     };
@@ -577,16 +620,8 @@ export function BuildingAdminSaasClient({ initialBuildings }: { initialBuildings
   }
 
   async function addRoomVideos(files: FileList) {
-    const nextVideos = [];
-    for (const file of Array.from(files)) {
-      const url = await readFileAsDataUrl(file);
-      nextVideos.push({
-        id: uid("video"),
-        url,
-        title: file.name || "Room Tour"
-      });
-    }
-    updateRoom({ videos: [...currentRoom.videos, ...nextVideos] });
+    if (!files.length) return;
+    setDataStatus("Video files are not stored as base64. Paste a COS video URL for now.");
   }
 
   if (!currentBuilding || !currentRoom) {
